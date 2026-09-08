@@ -11,10 +11,7 @@ interface EngineCanvasProps {
 }
 
 export const EngineCanvas: React.FC<EngineCanvasProps> = ({
-  navMode,
   scrollProgress,
-  activeProject,
-  atlasPan,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -27,169 +24,211 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
 
     // ── SCENE & ISOMETRIC CAMERA ─────────────────────────────────────────────
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x18191c);
-    scene.fog = new THREE.FogExp2(0x18191c, 0.025);
+    scene.background = new THREE.Color(0x0c0d10);
+    scene.fog = new THREE.FogExp2(0x0c0d10, 0.03);
 
-    const aspect = width / height;
-    const camera = new THREE.PerspectiveCamera(34, aspect, 0.1, 100);
-    // Authentic 3/4 isometric perspective matching Blender viewport
-    camera.position.set(10.5, 9.2, 11.5);
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
+    camera.position.set(11.5, 9.8, 12.5);
+    camera.lookAt(0, -0.2, 0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
       powerPreference: 'high-performance',
+      stencil: false,
+      depth: true,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1.6;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // ── STUDIO LIGHTING ──────────────────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
+    // ── LUXURY STUDIO ENVMAP GENERATION (For ultra-glossy clearcoat reflections)
+    const pmremGen = new THREE.PMREMGenerator(renderer);
+    pmremGen.compileEquirectangularShader();
+
+    const createStudioEnvMap = () => {
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color(0x111317);
+
+      // Bright softbox overhead panel
+      const softboxGeo = new THREE.PlaneGeometry(16, 16);
+      const softboxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const softbox = new THREE.Mesh(softboxGeo, softboxMat);
+      softbox.position.set(0, 10, 0);
+      softbox.rotation.x = Math.PI / 2;
+      envScene.add(softbox);
+
+      // Warm side strip
+      const strip1 = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 20),
+        new THREE.MeshBasicMaterial({ color: 0xff9944 })
+      );
+      strip1.position.set(12, 4, 6);
+      strip1.rotation.y = -Math.PI / 3;
+      envScene.add(strip1);
+
+      // Cool rim strip
+      const strip2 = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 20),
+        new THREE.MeshBasicMaterial({ color: 0x44aaff })
+      );
+      strip2.position.set(-12, 4, -6);
+      strip2.rotation.y = Math.PI / 3;
+      envScene.add(strip2);
+
+      const renderTarget = pmremGen.fromScene(envScene, 0.04);
+      envScene.clear();
+      return renderTarget.texture;
+    };
+
+    const envTexture = createStudioEnvMap();
+    scene.environment = envTexture;
+
+    // ── LIGHTING SETUP ───────────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfff5ea, 3.2);
-    keyLight.position.set(12, 18, 14);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3.8);
+    keyLight.position.set(10, 16, 12);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 2048;
     keyLight.shadow.mapSize.height = 2048;
-    keyLight.shadow.bias = -0.0001;
+    keyLight.shadow.bias = -0.0002;
+    keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0xa0c0e0, 1.5);
-    fillLight.position.set(-10, 8, -6);
-    scene.add(fillLight);
+    const rimLight = new THREE.DirectionalLight(0x70b0ff, 2.5);
+    rimLight.position.set(-12, 8, -10);
+    scene.add(rimLight);
 
-    const topSoft = new THREE.DirectionalLight(0xffffff, 1.2);
-    topSoft.position.set(0, 15, 0);
-    scene.add(topSoft);
+    const warmAccent = new THREE.DirectionalLight(0xff8844, 2.0);
+    warmAccent.position.set(6, -2, -10);
+    scene.add(warmAccent);
 
-    // ── QUADRANT TEXTURE FOR SPHERES (Black & Cream Checkered Ball) ───────────
-    const makeQuadrantTexture = () => {
+    // ── BEVELED TILES VIA SMOOTH GEOMETRY ────────────────────────────────────
+    const SLICES_PER_TRACK = 44;
+    const SLICE_WIDTH = 0.92;
+    const SLICE_HEIGHT = 0.38;
+    const SLICE_LENGTH = 0.12;
+    const SPACING = 0.16;
+    const TRACK_SPACING = 1.18;
+    const TOTAL_SLICES = SLICES_PER_TRACK * 4;
+
+    const tileGeo = new THREE.BoxGeometry(SLICE_WIDTH, SLICE_HEIGHT, SLICE_LENGTH, 2, 2, 2);
+
+    // ── ULTRA GLOSSY LACQUER MATERIALS (MeshPhysicalMaterial) ────────────────
+    const trackColors = [
+      new THREE.Color(0x3273b5), // Brilliant Cobalt / Cerulean Blue
+      new THREE.Color(0xdda236), // Liquid Rich Gold
+      new THREE.Color(0xd44d6a), // Vibrant Candy Rose
+      new THREE.Color(0x2ea86b), // Luminous Emerald Jade
+    ];
+
+    const trackOffsets = [0.0, 1.57, 3.14, 4.71];
+
+    const glossyMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      roughness: 0.1,
+      metalness: 0.15,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.04,
+      reflectivity: 1.0,
+      envMapIntensity: 2.2,
+    });
+
+    // GPU INSTANCED MESH (1 Single Draw Call for all 176 Tiles at 120 FPS!) ──
+    const instancedTiles = new THREE.InstancedMesh(tileGeo, glossyMaterial, TOTAL_SLICES);
+    instancedTiles.castShadow = true;
+    instancedTiles.receiveShadow = true;
+    instancedTiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+    // Assign vibrant per-instance colors
+    const dummyColor = new THREE.Color();
+    for (let tIdx = 0; tIdx < 4; tIdx++) {
+      for (let sIdx = 0; sIdx < SLICES_PER_TRACK; sIdx++) {
+        const instanceId = tIdx * SLICES_PER_TRACK + sIdx;
+        dummyColor.copy(trackColors[tIdx]);
+        instancedTiles.setColorAt(instanceId, dummyColor);
+      }
+    }
+    if (instancedTiles.instanceColor) {
+      instancedTiles.instanceColor.needsUpdate = true;
+    }
+
+    const motionRoot = new THREE.Group();
+    motionRoot.rotation.y = Math.PI * 0.25;
+    motionRoot.add(instancedTiles);
+    scene.add(motionRoot);
+
+    // ── HIGH-GLOSS QUADRANT SPHERES (Porcelain / Enamel Checkered) ────────────
+    const makePorcelainQuadrantTexture = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
+      canvas.width = 1024;
+      canvas.height = 1024;
       const ctx = canvas.getContext('2d')!;
-      // 4 quadrants
-      ctx.fillStyle = '#e8e4dc'; // Warm ivory cream
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.fillRect(256, 256, 256, 256);
-      ctx.fillStyle = '#1a1b1e'; // Matte deep obsidian
-      ctx.fillRect(256, 0, 256, 256);
-      ctx.fillRect(0, 256, 256, 256);
-      // Soft center seam line
-      ctx.strokeStyle = '#3a3b3e';
-      ctx.lineWidth = 4;
+
+      // Deep High-Gloss Piano Black
+      ctx.fillStyle = '#0a0a0c';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // Pure Pearl White Quadrants
+      ctx.fillStyle = '#faf6ed';
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillRect(512, 512, 512, 512);
+
+      // Gold Inset Seam Lines
+      ctx.strokeStyle = '#c69838';
+      ctx.lineWidth = 10;
       ctx.beginPath();
-      ctx.moveTo(256, 0); ctx.lineTo(256, 512);
-      ctx.moveTo(0, 256); ctx.lineTo(512, 256);
+      ctx.moveTo(512, 0); ctx.lineTo(512, 1024);
+      ctx.moveTo(0, 512); ctx.lineTo(1024, 512);
       ctx.stroke();
 
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
       return tex;
     };
 
-    const ballTexture = makeQuadrantTexture();
-    const ballMaterial = new THREE.MeshStandardMaterial({
-      map: ballTexture,
-      roughness: 0.25,
+    const ballMat = new THREE.MeshPhysicalMaterial({
+      map: makePorcelainQuadrantTexture(),
+      roughness: 0.05,
       metalness: 0.1,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.02,
+      envMapIntensity: 2.5,
     });
 
-    // ── KINETIC COLOR PALETTE (From Blender Reference) ────────────────────────
-    const trackConfigs = [
-      { color: 0x4a7bb0, name: 'Cerulean Blue', offset: 0.0, speed: 2.4 },
-      { color: 0xc89e48, name: 'Warm Ochre Gold', offset: 1.6, speed: 2.4 },
-      { color: 0xb06575, name: 'Dusty Mauve Pink', offset: 3.2, speed: 2.4 },
-      { color: 0x529e75, name: 'Mint Emerald Green', offset: 4.8, speed: 2.4 },
-    ];
-
-    const motionRoot = new THREE.Group();
-    // Rotate assembly along diagonal track angle
-    motionRoot.rotation.y = Math.PI * 0.25;
-    scene.add(motionRoot);
-
-    // ── PROCEDURAL SLICES & TILES SETUP ──────────────────────────────────────
-    const SLICES_PER_TRACK = 38;
-    const SLICE_WIDTH = 0.82;
-    const SLICE_LENGTH = 0.14;
-    const SLICE_HEIGHT = 0.42;
-    const SPACING = 0.18;
-    const TRACK_SPACING = 1.15;
-    const TRACK_TOTAL_LENGTH = SLICES_PER_TRACK * SPACING;
-
-    const sliceGeo = new THREE.BoxGeometry(SLICE_WIDTH, SLICE_HEIGHT, SLICE_LENGTH);
-
-    interface SliceData {
-      mesh: THREE.Mesh;
-      baseX: number;
-      baseY: number;
-      baseZ: number;
-      trackIndex: number;
-      sliceIndex: number;
-    }
-
-    const allSlices: SliceData[] = [];
+    const sphereGeo = new THREE.SphereGeometry(0.38, 48, 48);
     const sphereMeshes: THREE.Mesh[] = [];
 
-    // Build 4 Tracks
-    trackConfigs.forEach((cfg, tIdx) => {
-      const trackX = (tIdx - 1.5) * TRACK_SPACING;
+    for (let tIdx = 0; tIdx < 4; tIdx++) {
+      const sphere = new THREE.Mesh(sphereGeo, ballMat);
+      sphere.castShadow = true;
+      sphere.receiveShadow = true;
+      motionRoot.add(sphere);
+      sphereMeshes.push(sphere);
+    }
 
-      const trackMat = new THREE.MeshStandardMaterial({
-        color: cfg.color,
-        roughness: 0.38,
-        metalness: 0.08,
-      });
-
-      // Domino Tiles
-      for (let sIdx = 0; sIdx < SLICES_PER_TRACK; sIdx++) {
-        const sliceMesh = new THREE.Mesh(sliceGeo, trackMat);
-        const zPos = (sIdx - SLICES_PER_TRACK * 0.5) * SPACING;
-
-        sliceMesh.position.set(trackX, 0, zPos);
-        sliceMesh.castShadow = true;
-        sliceMesh.receiveShadow = true;
-
-        motionRoot.add(sliceMesh);
-        allSlices.push({
-          mesh: sliceMesh,
-          baseX: trackX,
-          baseY: 0,
-          baseZ: zPos,
-          trackIndex: tIdx,
-          sliceIndex: sIdx,
-        });
-      }
-
-      // Rolling Checkered Ball for this Track
-      const sphereGeo = new THREE.SphereGeometry(0.34, 32, 32);
-      const sphereMesh = new THREE.Mesh(sphereGeo, ballMaterial);
-      sphereMesh.castShadow = true;
-      sphereMesh.receiveShadow = true;
-      motionRoot.add(sphereMesh);
-      sphereMeshes.push(sphereMesh);
+    // ── FLOOR CONTACT SHADOW & REFLECTION PLANE ──────────────────────────────
+    const floorGeo = new THREE.PlaneGeometry(60, 60);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x0c0d10,
+      roughness: 0.6,
+      metalness: 0.2,
     });
-
-    // ── STUDIO SHADOW CATCHER FLOOR ──────────────────────────────────────────
-    const floorGeo = new THREE.PlaneGeometry(50, 50);
-    const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.y = -1.2;
+    floorMesh.position.y = -1.4;
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
-    // ── MOUSE INTERACTION & ORBIT TILT ───────────────────────────────────────
-    let mouseX = 0;
-    let mouseY = 0;
+    // ── ULTRA-SMOOTH MOUSE ORBIT CONTROLS ────────────────────────────────────
     let targetCamAngleX = 0;
     let targetCamAngleY = 0;
     let currentCamAngleX = 0;
@@ -197,7 +236,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
-    let baseCamRadius = 16.5;
+    const baseCamRadius = 17.5;
 
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       isDragging = true;
@@ -211,15 +250,12 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-      mouseX = (clientX / window.innerWidth) * 2 - 1;
-      mouseY = -(clientY / window.innerHeight) * 2 + 1;
-
       if (isDragging) {
         const deltaX = clientX - prevMouseX;
         const deltaY = clientY - prevMouseY;
-        targetCamAngleX += deltaX * 0.006;
-        targetCamAngleY += deltaY * 0.004;
-        targetCamAngleY = Math.max(-0.6, Math.min(0.6, targetCamAngleY));
+        targetCamAngleX += deltaX * 0.005;
+        targetCamAngleY += deltaY * 0.0035;
+        targetCamAngleY = Math.max(-0.5, Math.min(0.5, targetCamAngleY));
         prevMouseX = clientX;
         prevMouseY = clientY;
       }
@@ -236,73 +272,83 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp);
 
-    // ── KINETIC WAVE RENDER LOOP ─────────────────────────────────────────────
+    // ── MATRIX TRANSFORMS (OPTIMIZED 120 FPS RENDER LOOP) ───────────────────
+    const dummyMatrix = new THREE.Matrix4();
+    const dummyPos = new THREE.Vector3();
+    const dummyRot = new THREE.Euler();
+    const dummyScale = new THREE.Vector3(1, 1, 1);
+    const dummyQuat = new THREE.Quaternion();
+
     let animationId: number;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
+
+    const TRACK_TOTAL_LENGTH = SLICES_PER_TRACK * SPACING;
+    const waveFreq = 0.24;
+    const waveSpeed = 3.6;
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Update camera smooth damping
-      currentCamAngleX += (targetCamAngleX - currentCamAngleX) * 0.05;
-      currentCamAngleY += (targetCamAngleY - currentCamAngleY) * 0.05;
+      // Camera Damping
+      currentCamAngleX += (targetCamAngleX - currentCamAngleX) * 0.06;
+      currentCamAngleY += (targetCamAngleY - currentCamAngleY) * 0.06;
 
       const camAngleBase = Math.PI * 0.28 + currentCamAngleX;
-      const camElev = 9.2 + currentCamAngleY * 4.0;
+      const camElev = 9.8 + currentCamAngleY * 4.5;
       const camRad = baseCamRadius + (scrollProgress || 0) * 4.0;
 
       camera.position.x = Math.sin(camAngleBase) * camRad;
       camera.position.z = Math.cos(camAngleBase) * camRad;
       camera.position.y = camElev;
-      camera.lookAt(0, 0, 0);
+      camera.lookAt(0, -0.2, 0);
 
-      // ── UPDATE DOMINO WAVE ANIMATION ──────────────────────────────────────
-      const waveFreq = 0.28;
-      const waveSpeed = 3.2;
+      // Key light micro-shimmer
+      keyLight.position.x = 10 + Math.sin(elapsed * 0.6) * 1.5;
 
-      allSlices.forEach((slice) => {
-        const track = trackConfigs[slice.trackIndex];
-        // Mathematical wave phase
-        const phase = elapsed * waveSpeed - slice.sliceIndex * waveFreq + track.offset;
-        const wave = Math.sin(phase);
-        const waveCos = Math.cos(phase);
-
-        // Continuous twisting angle along length
-        slice.mesh.rotation.z = wave * (Math.PI * 0.45);
-        slice.mesh.rotation.x = waveCos * 0.15;
-        // Height displacement
-        slice.mesh.position.y = slice.baseY + Math.abs(wave) * 0.22;
-      });
-
-      // ── UPDATE ROLLING CHECKERED SPHERES ─────────────────────────────────
-      sphereMeshes.forEach((ball, tIdx) => {
-        const track = trackConfigs[tIdx];
+      // ── BATCH UPDATE INSTANCED MATRICES (ZERO CPU JANK) ───────────────────
+      for (let tIdx = 0; tIdx < 4; tIdx++) {
         const trackX = (tIdx - 1.5) * TRACK_SPACING;
+        const trackOffset = trackOffsets[tIdx];
 
-        // Position sphere along the length of the track in periodic motion
-        const ballLoop = (elapsed * 0.45 + track.offset * 0.25) % 1.0;
-        const ballZ = (ballLoop - 0.5) * (TRACK_TOTAL_LENGTH * 0.8);
+        for (let sIdx = 0; sIdx < SLICES_PER_TRACK; sIdx++) {
+          const instanceId = tIdx * SLICES_PER_TRACK + sIdx;
+          const zPos = (sIdx - SLICES_PER_TRACK * 0.5) * SPACING;
 
-        // Find wave height at current sphere position
-        const sliceIdxEst = ((ballZ / SPACING) + SLICES_PER_TRACK * 0.5);
-        const phase = elapsed * waveSpeed - sliceIdxEst * waveFreq + track.offset;
-        const wave = Math.sin(phase);
-        const ballY = 0.45 + Math.abs(wave) * 0.24;
+          const phase = elapsed * waveSpeed - sIdx * waveFreq + trackOffset;
+          const wave = Math.sin(phase);
+          const waveCos = Math.cos(phase);
+
+          dummyPos.set(trackX, Math.abs(wave) * 0.28, zPos);
+          dummyRot.set(waveCos * 0.18, 0, wave * (Math.PI * 0.5));
+          dummyQuat.setFromEuler(dummyRot);
+
+          dummyMatrix.compose(dummyPos, dummyQuat, dummyScale);
+          instancedTiles.setMatrixAt(instanceId, dummyMatrix);
+        }
+
+        // ── ROLLING BALL PHYSICS PER TRACK ──────────────────────────────────
+        const ball = sphereMeshes[tIdx];
+        const ballProgress = ((elapsed * 0.5 + trackOffset * 0.25) % 1.0);
+        const ballZ = (ballProgress - 0.5) * (TRACK_TOTAL_LENGTH * 0.85);
+
+        const sliceIndexEst = (ballZ / SPACING) + SLICES_PER_TRACK * 0.5;
+        const ballPhase = elapsed * waveSpeed - sliceIndexEst * waveFreq + trackOffset;
+        const ballWave = Math.sin(ballPhase);
+        const ballY = 0.52 + Math.abs(ballWave) * 0.28;
 
         ball.position.set(trackX, ballY, ballZ);
+        ball.rotation.x += 0.09;
+        ball.rotation.z = ballWave * 0.25;
+      }
 
-        // Rolling spin physics
-        ball.rotation.x += 0.08;
-        ball.rotation.z = wave * 0.3;
-      });
+      instancedTiles.instanceMatrix.needsUpdate = true;
 
       renderer.render(scene, camera);
     };
 
     animate();
 
-    // ── RESIZE HANDLER ───────────────────────────────────────────────────────
     const handleResize = () => {
       if (!container) return;
       const newW = container.clientWidth;
@@ -323,6 +369,8 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       window.removeEventListener('touchmove', onPointerMove);
       window.removeEventListener('touchend', onPointerUp);
       window.removeEventListener('resize', handleResize);
+      pmremGen.dispose();
+      envTexture.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
