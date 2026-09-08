@@ -509,24 +509,24 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
               </div>
             </motion.div>
 
-            {/* ── DEDICATED HERO 3D STAGE (ISOMETRIC KINETIC CONTINUUM) ──────────────── */}
+            {/* ── DEDICATED HERO 3D STAGE (BOWLING STRIKE PHYSICS) ──────────────── */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ delay: 0.25, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-5xl mx-auto mt-8 relative rounded-3xl overflow-hidden border border-[#2e2724] bg-[#0c0d10] shadow-2xl shadow-black/80 aspect-[16/10] sm:h-[540px]"
+              className="w-full max-w-5xl mx-auto mt-8 relative rounded-3xl overflow-hidden border border-[#2e2724] bg-[#0a0b0e] shadow-2xl shadow-black/80 aspect-[16/10] sm:h-[540px]"
             >
               {/* Top HUD bar */}
               <div className="absolute top-4 inset-x-6 z-20 flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#140f0c]/90 border border-[#2e2724] text-[11px] font-mono text-[#a89f91] backdrop-blur-xl">
-                  <span className="w-2 h-2 rounded-full bg-[#3273b5] animate-ping" />
-                  <span className="text-[#f5efe9] font-bold">KINETIC WAVE MATRIX</span>
+                  <span className="w-2 h-2 rounded-full bg-[#C61C09] animate-ping" />
+                  <span className="text-[#f5efe9] font-bold">RIGID BODY STRIKE</span>
                   <span className="text-[#786e64]">|</span>
-                  <span className="text-[#dda236]">120 FPS GPU</span>
+                  <span className="text-[#00d4ff]">BLENDER 5.2.1 LTS DEPSGRAPH</span>
                 </div>
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#140f0c]/90 border border-[#2e2724] text-[11px] font-mono text-[#a89f91] backdrop-blur-xl">
                   <Eye className="w-3.5 h-3.5 text-[#C61C09]" />
-                  <span>CLICK & DRAG TO TILT 360°</span>
+                  <span>DRAG TO TILT VIEW</span>
                 </div>
               </div>
 
@@ -541,27 +541,15 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
               </div>
 
               {/* Bottom Track Pills */}
-              <div className="absolute bottom-4 inset-x-6 z-20 flex items-center justify-between pointer-events-none">
-                <div className="flex items-center gap-2">
-                  {[
-                    { name: 'COBALT', color: '#3273b5' },
-                    { name: 'GOLD', color: '#dda236' },
-                    { name: 'ROSE', color: '#d44d6a' },
-                    { name: 'EMERALD', color: '#2ea86b' },
-                  ].map((track, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-1 rounded-md bg-[#140f0c]/80 border border-[#2e2724] text-[10px] font-mono font-bold flex items-center gap-1.5 backdrop-blur-md"
-                      style={{ color: track.color }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: track.color }} />
-                      {track.name}
-                    </span>
-                  ))}
-                </div>
-                <div className="text-[10px] font-mono text-[#786e64] hidden sm:block">
-                  GEOMETRY NODES PROCEDURAL DISPATCH
-                </div>
+              <div className="absolute bottom-4 left-6 z-20 flex items-center gap-2 pointer-events-none">
+                <span className="px-2.5 py-1 rounded-md bg-[#140f0c]/80 border border-[#2e2724] text-[10px] font-mono font-bold text-[#00d4ff] flex items-center gap-1.5 backdrop-blur-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00d4ff]" />
+                  10 PINS CONVEX HULL
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-[#140f0c]/80 border border-[#2e2724] text-[10px] font-mono font-bold text-[#C61C09] flex items-center gap-1.5 backdrop-blur-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C61C09]" />
+                  7KG RESIN BALL
+                </span>
               </div>
             </motion.div>
 

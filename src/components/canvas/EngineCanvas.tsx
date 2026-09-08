@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { Play, RotateCcw, Zap, Eye } from 'lucide-react';
 
 interface EngineCanvasProps {
   navMode: 'journey' | 'atlas';
@@ -14,6 +16,11 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
   scrollProgress,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isSlowMo, setIsSlowMo] = useState(false);
+  const [strikeScore, setStrikeScore] = useState<string>('PERFECT STRIKE • 300');
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const actionRef = useRef<THREE.AnimationAction | null>(null);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -22,242 +29,204 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // ── SCENE & ISOMETRIC CAMERA ─────────────────────────────────────────────
+    // ── 1. SCENE & DYNAMIC CAMERA ───────────────────────────────────────────
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0c0d10);
-    scene.fog = new THREE.FogExp2(0x0c0d10, 0.03);
+    scene.background = new THREE.Color(0x0a0b0e);
+    scene.fog = new THREE.FogExp2(0x0a0b0e, 0.035);
 
-    const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
-    camera.position.set(11.5, 9.8, 12.5);
-    camera.lookAt(0, -0.2, 0);
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
+    camera.position.set(0, 1.8, -7.5);
+    camera.lookAt(0, 0.4, 4.0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
       powerPreference: 'high-performance',
       stencil: false,
-      depth: true,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.6;
+    renderer.toneMappingExposure = 1.7;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // ── LUXURY STUDIO ENVMAP GENERATION (For ultra-glossy clearcoat reflections)
+    // ── 2. STUDIO HDR LIGHTING ──────────────────────────────────────────────
     const pmremGen = new THREE.PMREMGenerator(renderer);
     pmremGen.compileEquirectangularShader();
 
-    const createStudioEnvMap = () => {
-      const envScene = new THREE.Scene();
-      envScene.background = new THREE.Color(0x111317);
+    const envScene = new THREE.Scene();
+    envScene.background = new THREE.Color(0x0f1115);
 
-      // Bright softbox overhead panel
-      const softboxGeo = new THREE.PlaneGeometry(16, 16);
-      const softboxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const softbox = new THREE.Mesh(softboxGeo, softboxMat);
-      softbox.position.set(0, 10, 0);
-      softbox.rotation.x = Math.PI / 2;
-      envScene.add(softbox);
+    // Overhead Light Strip along Bowling Lane
+    const laneLightGeo = new THREE.PlaneGeometry(3, 18);
+    const laneLightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const laneLightMesh = new THREE.Mesh(laneLightGeo, laneLightMat);
+    laneLightMesh.position.set(0, 8, 2);
+    laneLightMesh.rotation.x = Math.PI / 2;
+    envScene.add(laneLightMesh);
 
-      // Warm side strip
-      const strip1 = new THREE.Mesh(
-        new THREE.PlaneGeometry(4, 20),
-        new THREE.MeshBasicMaterial({ color: 0xff9944 })
-      );
-      strip1.position.set(12, 4, 6);
-      strip1.rotation.y = -Math.PI / 3;
-      envScene.add(strip1);
+    // Pin Spot Light
+    const pinGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(2, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffe8d0 })
+    );
+    pinGlow.position.set(0, 5, 8);
+    envScene.add(pinGlow);
 
-      // Cool rim strip
-      const strip2 = new THREE.Mesh(
-        new THREE.PlaneGeometry(4, 20),
-        new THREE.MeshBasicMaterial({ color: 0x44aaff })
-      );
-      strip2.position.set(-12, 4, -6);
-      strip2.rotation.y = Math.PI / 3;
-      envScene.add(strip2);
+    const envTex = pmremGen.fromScene(envScene, 0.04).texture;
+    scene.environment = envTex;
+    envScene.clear();
 
-      const renderTarget = pmremGen.fromScene(envScene, 0.04);
-      envScene.clear();
-      return renderTarget.texture;
-    };
-
-    const envTexture = createStudioEnvMap();
-    scene.environment = envTexture;
-
-    // ── LIGHTING SETUP ───────────────────────────────────────────────────────
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 3.8);
-    keyLight.position.set(10, 16, 12);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 2048;
-    keyLight.shadow.mapSize.height = 2048;
-    keyLight.shadow.bias = -0.0002;
-    keyLight.shadow.normalBias = 0.02;
-    scene.add(keyLight);
+    const pinSpot = new THREE.SpotLight(0xfffaee, 6.0, 15, Math.PI / 4, 0.3, 1.5);
+    pinSpot.position.set(0, 5, 6.5);
+    pinSpot.target.position.set(0, 0.3, 7.8);
+    pinSpot.castShadow = true;
+    pinSpot.shadow.mapSize.width = 1024;
+    pinSpot.shadow.mapSize.height = 1024;
+    scene.add(pinSpot);
+    scene.add(pinSpot.target);
 
-    const rimLight = new THREE.DirectionalLight(0x70b0ff, 2.5);
-    rimLight.position.set(-12, 8, -10);
-    scene.add(rimLight);
+    const laneKey = new THREE.DirectionalLight(0xfff0dd, 2.5);
+    laneKey.position.set(4, 8, -2);
+    laneKey.castShadow = true;
+    scene.add(laneKey);
 
-    const warmAccent = new THREE.DirectionalLight(0xff8844, 2.0);
-    warmAccent.position.set(6, -2, -10);
-    scene.add(warmAccent);
+    const cyanRim = new THREE.DirectionalLight(0x00d4ff, 3.0);
+    cyanRim.position.set(-5, 3, 4);
+    scene.add(cyanRim);
 
-    // ── BEVELED TILES VIA SMOOTH GEOMETRY ────────────────────────────────────
-    const SLICES_PER_TRACK = 44;
-    const SLICE_WIDTH = 0.92;
-    const SLICE_HEIGHT = 0.38;
-    const SLICE_LENGTH = 0.12;
-    const SPACING = 0.16;
-    const TRACK_SPACING = 1.18;
-    const TOTAL_SLICES = SLICES_PER_TRACK * 4;
+    // ── 3. IMPACT PARTICLE SPARKS ───────────────────────────────────────────
+    const sparkCount = 35;
+    const sparkGeo = new THREE.BufferGeometry();
+    const sparkPos = new Float32Array(sparkCount * 3);
+    const sparkVel: THREE.Vector3[] = [];
 
-    const tileGeo = new THREE.BoxGeometry(SLICE_WIDTH, SLICE_HEIGHT, SLICE_LENGTH, 2, 2, 2);
-
-    // ── ULTRA GLOSSY LACQUER MATERIALS (MeshPhysicalMaterial) ────────────────
-    const trackColors = [
-      new THREE.Color(0x3273b5), // Brilliant Cobalt / Cerulean Blue
-      new THREE.Color(0xdda236), // Liquid Rich Gold
-      new THREE.Color(0xd44d6a), // Vibrant Candy Rose
-      new THREE.Color(0x2ea86b), // Luminous Emerald Jade
-    ];
-
-    const trackOffsets = [0.0, 1.57, 3.14, 4.71];
-
-    const glossyMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      roughness: 0.1,
-      metalness: 0.15,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.04,
-      reflectivity: 1.0,
-      envMapIntensity: 2.2,
-    });
-
-    // GPU INSTANCED MESH (1 Single Draw Call for all 176 Tiles at 120 FPS!) ──
-    const instancedTiles = new THREE.InstancedMesh(tileGeo, glossyMaterial, TOTAL_SLICES);
-    instancedTiles.castShadow = true;
-    instancedTiles.receiveShadow = true;
-    instancedTiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-
-    // Assign vibrant per-instance colors
-    const dummyColor = new THREE.Color();
-    for (let tIdx = 0; tIdx < 4; tIdx++) {
-      for (let sIdx = 0; sIdx < SLICES_PER_TRACK; sIdx++) {
-        const instanceId = tIdx * SLICES_PER_TRACK + sIdx;
-        dummyColor.copy(trackColors[tIdx]);
-        instancedTiles.setColorAt(instanceId, dummyColor);
-      }
-    }
-    if (instancedTiles.instanceColor) {
-      instancedTiles.instanceColor.needsUpdate = true;
+    for (let i = 0; i < sparkCount; i++) {
+      sparkPos[i * 3] = 0;
+      sparkPos[i * 3 + 1] = 0.3;
+      sparkPos[i * 3 + 2] = 7.5;
+      sparkVel.push(
+        new THREE.Vector3(
+          (Math.random() - 0.5) * 4.0,
+          Math.random() * 3.5 + 1.0,
+          Math.random() * 3.0 + 1.0
+        )
+      );
     }
 
-    const motionRoot = new THREE.Group();
-    motionRoot.rotation.y = Math.PI * 0.25;
-    motionRoot.add(instancedTiles);
-    scene.add(motionRoot);
-
-    // ── HIGH-GLOSS QUADRANT SPHERES (Porcelain / Enamel Checkered) ────────────
-    const makePorcelainQuadrantTexture = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1024;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d')!;
-
-      // Deep High-Gloss Piano Black
-      ctx.fillStyle = '#0a0a0c';
-      ctx.fillRect(0, 0, 1024, 1024);
-
-      // Pure Pearl White Quadrants
-      ctx.fillStyle = '#faf6ed';
-      ctx.fillRect(0, 0, 512, 512);
-      ctx.fillRect(512, 512, 512, 512);
-
-      // Gold Inset Seam Lines
-      ctx.strokeStyle = '#c69838';
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.moveTo(512, 0); ctx.lineTo(512, 1024);
-      ctx.moveTo(0, 512); ctx.lineTo(1024, 512);
-      ctx.stroke();
-
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      return tex;
-    };
-
-    const ballMat = new THREE.MeshPhysicalMaterial({
-      map: makePorcelainQuadrantTexture(),
-      roughness: 0.05,
-      metalness: 0.1,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.02,
-      envMapIntensity: 2.5,
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+    const sparkMat = new THREE.PointsMaterial({
+      color: 0xffbb44,
+      size: 0.12,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
     });
+    const sparkParticles = new THREE.Points(sparkGeo, sparkMat);
+    scene.add(sparkParticles);
 
-    const sphereGeo = new THREE.SphereGeometry(0.38, 48, 48);
-    const sphereMeshes: THREE.Mesh[] = [];
+    // ── 4. LOAD ANIMATED BOWLING STRIKE GLB ──────────────────────────────────
+    const loader = new GLTFLoader();
+    let bowlingScene: THREE.Group | null = null;
+    let ballObject: THREE.Object3D | null = null;
 
-    for (let tIdx = 0; tIdx < 4; tIdx++) {
-      const sphere = new THREE.Mesh(sphereGeo, ballMat);
-      sphere.castShadow = true;
-      sphere.receiveShadow = true;
-      motionRoot.add(sphere);
-      sphereMeshes.push(sphere);
-    }
+    loader.load(
+      '/models/bowling_strike.glb',
+      (gltf) => {
+        bowlingScene = gltf.scene;
+        scene.add(bowlingScene);
 
-    // ── FLOOR CONTACT SHADOW & REFLECTION PLANE ──────────────────────────────
-    const floorGeo = new THREE.PlaneGeometry(60, 60);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0c0d10,
-      roughness: 0.6,
-      metalness: 0.2,
-    });
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.y = -1.4;
-    floorMesh.receiveShadow = true;
-    scene.add(floorMesh);
+        // Enhance materials with PBR Clearcoat Shaders
+        bowlingScene.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
 
-    // ── ULTRA-SMOOTH MOUSE ORBIT CONTROLS ────────────────────────────────────
-    let targetCamAngleX = 0;
-    let targetCamAngleY = 0;
-    let currentCamAngleX = 0;
-    let currentCamAngleY = 0;
+            if (mesh.name.toLowerCase().includes('ball')) {
+              ballObject = mesh;
+              mesh.material = new THREE.MeshPhysicalMaterial({
+                color: 0xc61c09,
+                roughness: 0.06,
+                metalness: 0.4,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.02,
+                reflectivity: 1.0,
+                envMapIntensity: 2.5,
+              });
+            } else if (mesh.name.toLowerCase().includes('pin')) {
+              mesh.material = new THREE.MeshPhysicalMaterial({
+                color: 0xfcfcfd,
+                roughness: 0.12,
+                metalness: 0.05,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.03,
+                envMapIntensity: 2.0,
+              });
+            } else if (mesh.name.toLowerCase().includes('lane') || mesh.name.toLowerCase().includes('parquet')) {
+              mesh.material = new THREE.MeshPhysicalMaterial({
+                color: 0x9e734b,
+                roughness: 0.18,
+                metalness: 0.08,
+                clearcoat: 0.95,
+                clearcoatRoughness: 0.04,
+                envMapIntensity: 2.2,
+              });
+            }
+          }
+        });
+
+        // Setup Animation Mixer
+        if (gltf.animations && gltf.animations.length > 0) {
+          const mixer = new THREE.AnimationMixer(bowlingScene);
+          mixerRef.current = mixer;
+
+          gltf.animations.forEach((clip) => {
+            const action = mixer.clipAction(clip);
+            action.setLoop(THREE.LoopRepeat, Infinity);
+            action.play();
+            actionRef.current = action;
+          });
+        }
+      },
+      undefined,
+      (err) => console.error('Error loading bowling strike:', err)
+    );
+
+    // ── 5. MOUSE INTERACTION & ORBIT TILT ───────────────────────────────────
+    let targetRotX = 0;
+    let targetRotY = 0;
+    let currentRotX = 0;
+    let currentRotY = 0;
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
-    const baseCamRadius = 14.5;
 
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       isDragging = true;
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      prevMouseX = clientX;
-      prevMouseY = clientY;
+      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      prevMouseX = cx;
+      prevMouseY = cy;
     };
 
     const onPointerMove = (e: MouseEvent | TouchEvent) => {
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
       if (isDragging) {
-        const deltaX = clientX - prevMouseX;
-        const deltaY = clientY - prevMouseY;
-        targetCamAngleX += deltaX * 0.006;
-        targetCamAngleY += deltaY * 0.004;
-        targetCamAngleY = Math.max(-0.45, Math.min(0.45, targetCamAngleY));
-        prevMouseX = clientX;
-        prevMouseY = clientY;
+        const deltaX = cx - prevMouseX;
+        const deltaY = cy - prevMouseY;
+        targetRotY += deltaX * 0.005;
+        targetRotX += deltaY * 0.003;
+        targetRotX = Math.max(-0.35, Math.min(0.45, targetRotX));
+        prevMouseX = cx;
+        prevMouseY = cy;
       }
     };
 
@@ -272,77 +241,57 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp);
 
-    // ── MATRIX TRANSFORMS (OPTIMIZED 120 FPS RENDER LOOP) ───────────────────
-    const dummyMatrix = new THREE.Matrix4();
-    const dummyPos = new THREE.Vector3();
-    const dummyRot = new THREE.Euler();
-    const dummyScale = new THREE.Vector3(1, 1, 1);
-    const dummyQuat = new THREE.Quaternion();
-
+    // ── 6. RENDER & CINEMATIC TRACKING LOOP ─────────────────────────────────
     let animationId: number;
     const clock = new THREE.Clock();
 
-    const TRACK_TOTAL_LENGTH = SLICES_PER_TRACK * SPACING;
-    const waveFreq = 0.24;
-    const waveSpeed = 3.6;
-
     const animate = () => {
       animationId = requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      const delta = clock.getDelta();
 
-      // Camera Damping
-      currentCamAngleX += (targetCamAngleX - currentCamAngleX) * 0.06;
-      currentCamAngleY += (targetCamAngleY - currentCamAngleY) * 0.06;
-
-      const camAngleBase = Math.PI * 0.28 + currentCamAngleX;
-      const camElev = 9.8 + currentCamAngleY * 4.5;
-      const camRad = baseCamRadius + (scrollProgress || 0) * 4.0;
-
-      camera.position.x = Math.sin(camAngleBase) * camRad;
-      camera.position.z = Math.cos(camAngleBase) * camRad;
-      camera.position.y = camElev;
-      camera.lookAt(0, -0.2, 0);
-
-      // Key light micro-shimmer
-      keyLight.position.x = 10 + Math.sin(elapsed * 0.6) * 1.5;
-
-      // ── BATCH UPDATE INSTANCED MATRICES (ZERO CPU JANK) ───────────────────
-      for (let tIdx = 0; tIdx < 4; tIdx++) {
-        const trackX = (tIdx - 1.5) * TRACK_SPACING;
-        const trackOffset = trackOffsets[tIdx];
-
-        for (let sIdx = 0; sIdx < SLICES_PER_TRACK; sIdx++) {
-          const instanceId = tIdx * SLICES_PER_TRACK + sIdx;
-          const zPos = (sIdx - SLICES_PER_TRACK * 0.5) * SPACING;
-
-          const phase = elapsed * waveSpeed - sIdx * waveFreq + trackOffset;
-          const wave = Math.sin(phase);
-          const waveCos = Math.cos(phase);
-
-          dummyPos.set(trackX, Math.abs(wave) * 0.28, zPos);
-          dummyRot.set(waveCos * 0.18, 0, wave * (Math.PI * 0.5));
-          dummyQuat.setFromEuler(dummyRot);
-
-          dummyMatrix.compose(dummyPos, dummyQuat, dummyScale);
-          instancedTiles.setMatrixAt(instanceId, dummyMatrix);
-        }
-
-        // ── ROLLING BALL PHYSICS PER TRACK ──────────────────────────────────
-        const ball = sphereMeshes[tIdx];
-        const ballProgress = ((elapsed * 0.5 + trackOffset * 0.25) % 1.0);
-        const ballZ = (ballProgress - 0.5) * (TRACK_TOTAL_LENGTH * 0.85);
-
-        const sliceIndexEst = (ballZ / SPACING) + SLICES_PER_TRACK * 0.5;
-        const ballPhase = elapsed * waveSpeed - sliceIndexEst * waveFreq + trackOffset;
-        const ballWave = Math.sin(ballPhase);
-        const ballY = 0.52 + Math.abs(ballWave) * 0.28;
-
-        ball.position.set(trackX, ballY, ballZ);
-        ball.rotation.x += 0.09;
-        ball.rotation.z = ballWave * 0.25;
+      // Update Animation Mixer with Slow-Mo scaling
+      if (mixerRef.current) {
+        const playSpeed = isSlowMo ? 0.35 : 1.0;
+        mixerRef.current.timeScale = playSpeed;
+        mixerRef.current.update(delta);
       }
 
-      instancedTiles.instanceMatrix.needsUpdate = true;
+      // Smooth camera orbit damping
+      currentRotX += (targetRotX - currentRotX) * 0.06;
+      currentRotY += (targetRotY - currentRotY) * 0.06;
+
+      const baseCamZ = -7.5 + (scrollProgress || 0) * 2.5;
+      camera.position.x = Math.sin(currentRotY) * 6.5 + currentRotY * 1.5;
+      camera.position.z = Math.cos(currentRotY) * baseCamZ;
+      camera.position.y = 1.8 + currentRotX * 3.5;
+      camera.lookAt(0, 0.4, 4.0);
+
+      // Impact spark trigger at impact time (~1.1s in animation)
+      if (mixerRef.current && actionRef.current) {
+        const animTime = actionRef.current.time % actionRef.current.getClip().duration;
+        if (animTime > 1.05 && animTime < 1.45) {
+          sparkMat.opacity = Math.min(1.0, sparkMat.opacity + 0.15);
+          const pArr = sparkGeo.attributes.position.array as Float32Array;
+          for (let i = 0; i < sparkCount; i++) {
+            pArr[i * 3] += sparkVel[i].x * delta * 2.0;
+            pArr[i * 3 + 1] += sparkVel[i].y * delta * 2.0;
+            pArr[i * 3 + 2] += sparkVel[i].z * delta * 2.0;
+          }
+          sparkGeo.attributes.position.needsUpdate = true;
+        } else {
+          sparkMat.opacity = Math.max(0.0, sparkMat.opacity - 0.08);
+          if (sparkMat.opacity <= 0) {
+            // Reset sparks
+            const pArr = sparkGeo.attributes.position.array as Float32Array;
+            for (let i = 0; i < sparkCount; i++) {
+              pArr[i * 3] = (Math.random() - 0.5) * 0.4;
+              pArr[i * 3 + 1] = 0.25;
+              pArr[i * 3 + 2] = 7.5;
+            }
+            sparkGeo.attributes.position.needsUpdate = true;
+          }
+        }
+      }
 
       renderer.render(scene, camera);
     };
@@ -370,18 +319,54 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       window.removeEventListener('touchend', onPointerUp);
       window.removeEventListener('resize', handleResize);
       pmremGen.dispose();
-      envTexture.dispose();
+      envTex.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
     };
-  }, [scrollProgress]);
+  }, [scrollProgress, isSlowMo]);
+
+  const handleRestart = () => {
+    if (actionRef.current) {
+      actionRef.current.reset();
+      actionRef.current.play();
+    }
+  };
+
+  const toggleSlowMo = () => {
+    setIsSlowMo((prev) => !prev);
+  };
 
   return (
-    <div
-      ref={mountRef}
-      className="absolute inset-0 w-full h-full pointer-events-auto cursor-grab active:cursor-grabbing z-0"
-    />
+    <div className="relative w-full h-full">
+      {/* 3D Canvas Mount */}
+      <div
+        ref={mountRef}
+        className="absolute inset-0 w-full h-full pointer-events-auto cursor-grab active:cursor-grabbing z-0"
+      />
+
+      {/* Floating Interactive Controls HUD */}
+      <div className="absolute bottom-4 right-4 z-30 flex items-center gap-2 pointer-events-auto">
+        <button
+          onClick={handleRestart}
+          className="px-3 py-1.5 rounded-xl bg-[#140f0c]/90 hover:bg-[#C61C09] border border-[#2e2724] text-[#f5efe9] text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>REPLAY STRIKE</span>
+        </button>
+        <button
+          onClick={toggleSlowMo}
+          className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer ${
+            isSlowMo
+              ? 'bg-[#dda236] text-[#0c0d10] border-[#dda236]'
+              : 'bg-[#140f0c]/90 text-[#a89f91] hover:text-[#f5efe9] border-[#2e2724]'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>{isSlowMo ? 'SLOW-MO ON (0.35x)' : 'SLOW-MO'}</span>
+        </button>
+      </div>
+    </div>
   );
 };
