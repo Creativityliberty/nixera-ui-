@@ -27,10 +27,10 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x090706, 0.02);
+    scene.fog = new THREE.FogExp2(0x090706, 0.035);
 
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-    camera.position.set(0, 1.2, 8.5);
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
+    camera.position.set(0, 1.1, 7.2);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -40,251 +40,200 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.4;
+    renderer.toneMappingExposure = 1.6;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // ── LUXURY DIAMOND REFRACTIVE MATERIAL (IOR: 2.417) ──────────────────────
-    const diamondMat1 = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      emissive: 0xc61c09,
-      emissiveIntensity: 0.15,
-      roughness: 0.02,
-      metalness: 0.05,
-      transmission: 0.95,
-      ior: 2.417,
-      thickness: 1.4,
-      specularIntensity: 1.0,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.02,
-      transparent: true,
-      opacity: 0.95,
-      reflectivity: 1.0,
-    });
+    // ── AUTOMOTIVE STUDIO LIGHTING ───────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambientLight);
 
-    const diamondMat2 = diamondMat1.clone();
-    diamondMat2.emissive = new THREE.Color(0xff4422);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
+    keyLight.position.set(5, 8, 5);
+    keyLight.castShadow = true;
+    scene.add(keyLight);
 
-    const wireMat = new THREE.MeshBasicMaterial({
-      color: 0xff5a2d,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.25,
-    });
+    const fillLight = new THREE.DirectionalLight(0xff6030, 2.0);
+    fillLight.position.set(-6, 4, -3);
+    scene.add(fillLight);
 
-    // ── DUAL DIAMOND GROUPS ──────────────────────────────────────────────────
-    const diamond1 = new THREE.Group();
-    const diamond2 = new THREE.Group();
-    diamond1.position.set(-1.8, 1.2, 0);
-    diamond2.position.set(1.8, 1.2, 0);
-    scene.add(diamond1);
-    scene.add(diamond2);
+    const rimLight = new THREE.DirectionalLight(0x4080ff, 2.5);
+    rimLight.position.set(0, 6, -6);
+    scene.add(rimLight);
 
-    // ── CORONAL LIGHT BURST (CENTER PLASMA SPARK) ───────────────────────────
-    const burstGeo = new THREE.SphereGeometry(0.35, 32, 32);
-    const burstMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-    });
-    const burstMesh = new THREE.Mesh(burstGeo, burstMat);
-    burstMesh.position.set(0, 1.2, 0);
-    scene.add(burstMesh);
+    const groundGlow = new THREE.PointLight(0xc61c09, 3.0, 10, 1.5);
+    groundGlow.position.set(0, -0.2, 0);
+    scene.add(groundGlow);
 
-    // Central Light Explosion Point
-    const burstLight = new THREE.PointLight(0xffffff, 0, 15, 2);
-    burstLight.position.set(0, 1.2, 0);
-    scene.add(burstLight);
+    // ── STUDIO FLOOR MIRROR & GROUND GRID ────────────────────────────────────
+    const gridHelper = new THREE.GridHelper(24, 40, 0xc61c09, 0x1f1917);
+    gridHelper.position.y = -0.7;
+    (gridHelper.material as THREE.Material).transparent = true;
+    (gridHelper.material as THREE.Material).opacity = 0.35;
+    scene.add(gridHelper);
 
-    const redGlowLight = new THREE.PointLight(0xc61c09, 0, 18, 1.5);
-    redGlowLight.position.set(0, 1.2, 0);
-    scene.add(redGlowLight);
+    // ── CAR ROOT ASSEMBLY ───────────────────────────────────────────────────
+    const carRoot = new THREE.Group();
+    carRoot.position.set(0, -0.2, 0);
+    scene.add(carRoot);
 
-    // Sparkle Particle Field
-    const sparkGeo = new THREE.BufferGeometry();
-    const sparkCount = 40;
-    const sparkPositions = new Float32Array(sparkCount * 3);
-    for (let i = 0; i < sparkCount * 3; i += 3) {
-      sparkPositions[i] = (Math.random() - 0.5) * 1.5;
-      sparkPositions[i + 1] = 1.2 + (Math.random() - 0.5) * 1.5;
-      sparkPositions[i + 2] = (Math.random() - 0.5) * 1.5;
-    }
-    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
-    const sparkMat = new THREE.PointsMaterial({
-      color: 0xff5a2d,
-      size: 0.08,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-    });
-    const sparkPoints = new THREE.Points(sparkGeo, sparkMat);
-    scene.add(sparkPoints);
-
-    // ── LOAD BLENDER 3D DIAMOND GLB ASSET ────────────────────────────────────
+    // ── LOAD RED SPORTS CAR GLB ──────────────────────────────────────────────
     const loader = new GLTFLoader();
-    loader.load(
-      '/models/diamond_lozenge.glb',
-      (gltf) => {
-        // Clone for Diamond 1 (Left)
-        const model1 = gltf.scene.clone();
-        model1.scale.set(1.3, 1.3, 1.3);
-        model1.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.material = diamondMat1;
-            const wire = new THREE.Mesh(mesh.geometry, wireMat);
-            wire.scale.set(1.002, 1.002, 1.002);
-            model1.add(wire);
-          }
-        });
-        diamond1.add(model1);
+    let carModel: THREE.Group | null = null;
 
-        // Clone for Diamond 2 (Right)
-        const model2 = gltf.scene.clone();
-        model2.scale.set(1.3, 1.3, 1.3);
-        model2.traverse((child) => {
+    loader.load(
+      '/models/red_sports_car.glb',
+      (gltf) => {
+        carModel = gltf.scene;
+        
+        // Auto-center and normalize scale
+        const box = new THREE.Box3().setFromObject(carModel);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const targetScale = 3.6 / (maxDim || 1);
+
+        carModel.scale.set(targetScale, targetScale, targetScale);
+        carModel.position.sub(center.multiplyScalar(targetScale));
+        carModel.position.y += 0.3;
+
+        carModel.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const mesh = child as THREE.Mesh;
-            mesh.material = diamondMat2;
-            const wire = new THREE.Mesh(mesh.geometry, wireMat);
-            wire.scale.set(1.002, 1.002, 1.002);
-            model2.add(wire);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            // Enhance materials with luxury PBR finish
+            if (mesh.material) {
+              const mat = mesh.material as THREE.MeshStandardMaterial;
+              if (mat.name.toLowerCase().includes('red') || mat.name.toLowerCase().includes('body')) {
+                mat.roughness = 0.15;
+                mat.metalness = 0.85;
+                mat.envMapIntensity = 2.0;
+              }
+            }
           }
         });
-        diamond2.add(model2);
+
+        carRoot.add(carModel);
       },
       undefined,
-      () => {
-        // Fallback procedural diamonds
-        const fallbackGeo = new THREE.OctahedronGeometry(1.4, 2);
-        diamond1.add(new THREE.Mesh(fallbackGeo, diamondMat1));
-        diamond2.add(new THREE.Mesh(fallbackGeo, diamondMat2));
+      (err) => {
+        console.error('Failed to load red sports car:', err);
       }
     );
 
-    // ── SCENE LIGHTING ───────────────────────────────────────────────────────
-    const keySpot = new THREE.SpotLight(0xffffff, 18, 30, Math.PI / 3, 0.4);
-    keySpot.position.set(6, 9, 8);
-    scene.add(keySpot);
-
-    const carminSpot = new THREE.SpotLight(0xc61c09, 20, 25, Math.PI / 3, 0.4);
-    carminSpot.position.set(-6, -3, 6);
-    scene.add(carminSpot);
-
-    const ambientLight = new THREE.AmbientLight(0x181412, 2.0);
-    scene.add(ambientLight);
-
-    // ── INTERACTIVE POINTER LISTENER ─────────────────────────────────────────
+    // ── INTERACTIVE MOUSE / GYROSCOPE CONTROLS ───────────────────────────────
     let mouseX = 0;
     let mouseY = 0;
-    let targetCamX = 0;
-    let targetCamY = 1.2;
-    let targetCamZ = 8.5;
+    let targetRotX = 0.15;
+    let targetRotY = -0.55;
+    let currentRotX = 0.15;
+    let currentRotY = -0.55;
+    let isDragging = false;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
 
-    const onPointerMove = (e: MouseEvent) => {
-      mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-      mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      isDragging = true;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      prevMouseX = clientX;
+      prevMouseY = clientY;
     };
-    window.addEventListener('mousemove', onPointerMove, { passive: true });
 
-    let animId: number;
-    const clock = new THREE.Clock();
+    const onPointerMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      mouseX = (clientX / window.innerWidth) * 2 - 1;
+      mouseY = -(clientY / window.innerHeight) * 2 + 1;
+
+      if (isDragging) {
+        const deltaX = clientX - prevMouseX;
+        const deltaY = clientY - prevMouseY;
+        targetRotY += deltaX * 0.008;
+        targetRotX += deltaY * 0.005;
+        targetRotX = Math.max(-0.4, Math.min(0.6, targetRotX));
+        prevMouseX = clientX;
+        prevMouseY = clientY;
+      }
+    };
+
+    const onPointerUp = () => {
+      isDragging = false;
+    };
+
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+    window.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp);
+
+    // ── ANIMATION RENDER LOOP ────────────────────────────────────────────────
+    let animationId: number;
+    let clock = new THREE.Clock();
 
     const animate = () => {
-      animId = requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Convergence logic: how close the mouse or scroll brings the diamonds together
-      // Center proximity (cursor in middle = max attraction)
-      const centerDist = Math.hypot(mouseX, mouseY);
-      const proximityFactor = Math.max(0, 1 - centerDist * 1.1) + Math.min(scrollProgress * 2, 0.8);
-      const clampedProximity = Math.min(Math.max(proximityFactor, 0), 1);
-
-      // Diamonds glide towards each other
-      const baseDistance = 1.8;
-      const currentOffset = THREE.MathUtils.lerp(baseDistance, 0.38, clampedProximity);
-
-      diamond1.position.x = -currentOffset;
-      diamond2.position.x = currentOffset;
-
-      // Vertical hover breathing
-      const hover1 = Math.sin(elapsed * 1.2) * 0.08;
-      const hover2 = Math.cos(elapsed * 1.2) * 0.08;
-      diamond1.position.y = 1.2 + hover1;
-      diamond2.position.y = 1.2 + hover2;
-
-      // Inverse rotations for luxury twin interaction
-      diamond1.rotation.y = elapsed * 0.45 + mouseX * 0.3;
-      diamond1.rotation.x = Math.sin(elapsed * 0.3) * 0.2 - mouseY * 0.2;
-      diamond1.rotation.z = Math.cos(elapsed * 0.25) * 0.15;
-
-      diamond2.rotation.y = -elapsed * 0.45 - mouseX * 0.3;
-      diamond2.rotation.x = -Math.sin(elapsed * 0.3) * 0.2 - mouseY * 0.2;
-      diamond2.rotation.z = -Math.cos(elapsed * 0.25) * 0.15;
-
-      // ── LIGHT BURST TRIGGER WHEN DIAMONDS GET CLOSE ────────────────────────
-      const isClose = clampedProximity > 0.45;
-      const burstFactor = Math.pow(Math.max(0, (clampedProximity - 0.45) / 0.55), 2);
-
-      // Light flash intensity
-      burstLight.intensity = THREE.MathUtils.lerp(0, 75, burstFactor);
-      redGlowLight.intensity = THREE.MathUtils.lerp(0, 90, burstFactor);
-
-      // Flare mesh expansion & opacity
-      burstMesh.scale.setScalar(THREE.MathUtils.lerp(0.1, 1.8 + Math.sin(elapsed * 15) * 0.3, burstFactor));
-      burstMat.opacity = THREE.MathUtils.lerp(0, 0.95, burstFactor);
-
-      // Sparkle particles appearance
-      sparkMat.opacity = THREE.MathUtils.lerp(0, 0.85, burstFactor);
-      sparkPoints.rotation.y = elapsed * 0.8;
-
-      // Diamond material emissive surge on contact
-      diamondMat1.emissiveIntensity = THREE.MathUtils.lerp(0.15, 0.95, burstFactor);
-      diamondMat2.emissiveIntensity = THREE.MathUtils.lerp(0.15, 0.95, burstFactor);
-
-      // Camera motion
-      if (navMode === 'journey') {
-        const scrollZ = scrollProgress * 22;
-        targetCamZ = 8.5 - scrollZ;
-        targetCamX = mouseX * 0.45;
-        targetCamY = 1.2 + mouseY * 0.35;
-      } else {
-        targetCamZ = 16 / (atlasPan.zoom || 1);
-        targetCamX = atlasPan.x * 0.08 + mouseX * 0.6;
-        targetCamY = -atlasPan.y * 0.08 + mouseY * 0.4;
+      // Smooth damping interpolation
+      if (!isDragging) {
+        targetRotY += 0.0035; // Gentle turntable idle spin
       }
+      currentRotX += (targetRotX - currentRotX) * 0.06;
+      currentRotY += (targetRotY - currentRotY) * 0.06;
 
-      camera.position.x += (targetCamX - camera.position.x) * 0.06;
-      camera.position.y += (targetCamY - camera.position.y) * 0.06;
-      camera.position.z += (targetCamZ - camera.position.z) * 0.06;
+      carRoot.rotation.y = currentRotY;
+      carRoot.rotation.x = currentRotX + Math.sin(elapsed * 1.5) * 0.02;
+
+      // Gentle floating suspension breathing motion
+      carRoot.position.y = -0.2 + Math.sin(elapsed * 2.0) * 0.03;
+
+      // Key light subtle dynamic orbit
+      keyLight.position.x = 5 + Math.sin(elapsed * 0.8) * 2.0;
+      groundGlow.intensity = 2.5 + Math.sin(elapsed * 3.0) * 1.0;
+
+      // Scroll response
+      const scrollOffset = scrollProgress || 0;
+      camera.position.z = 7.2 + scrollOffset * 3.5;
+      camera.position.y = 1.1 + scrollOffset * 0.5;
 
       renderer.render(scene, camera);
     };
+
     animate();
 
-    const onResize = () => {
+    // ── RESIZE HANDLER ───────────────────────────────────────────────────────
+    const handleResize = () => {
       if (!container) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const newW = container.clientWidth;
+      const newH = container.clientHeight;
+      camera.aspect = newW / newH;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(newW, newH);
     };
-    window.addEventListener('resize', onResize);
+
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      cancelAnimationFrame(animId);
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('mousedown', onPointerDown);
       window.removeEventListener('mousemove', onPointerMove);
-      window.removeEventListener('resize', onResize);
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-      burstGeo.dispose();
-      burstMat.dispose();
-      sparkGeo.dispose();
-      sparkMat.dispose();
-      diamondMat1.dispose();
-      diamondMat2.dispose();
-      wireMat.dispose();
+      window.removeEventListener('mouseup', onPointerUp);
+      window.removeEventListener('touchstart', onPointerDown);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('touchend', onPointerUp);
+      window.removeEventListener('resize', handleResize);
       renderer.dispose();
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
     };
-  }, [navMode, scrollProgress, atlasPan, activeProject]);
+  }, [scrollProgress]);
 
-  return <div ref={mountRef} className="fixed inset-0 pointer-events-none z-0 overflow-hidden" />;
+  return <div ref={mountRef} className="absolute inset-0 w-full h-full pointer-events-auto cursor-grab active:cursor-grabbing z-0" />;
 };
