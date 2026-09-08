@@ -1,0 +1,234 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "brandName": "Pixera Studio",
+    "title": "Pixera Studio — Curated for Bold Ambition",
+    "description": "A focused digital studio building brands, interfaces, and stories that earn attention. We partner with founders and teams to shape ideas into polished digital products.",
+    "domainCategory": "creative-agency",
+    "tone": "bold"
+  },
+  "theme": {
+    "accentColor": "#C61C09",
+    "background": "#090706",
+    "surface": "#140f0c",
+    "textPrimary": "#f5efe9",
+    "textMuted": "#a89f91",
+    "border": "#2e2724",
+    "mode": "dark",
+    "archetype": "spatial-glass"
+  },
+  "navigation": {
+    "logoText": "Pixera Studio",
+    "badge": "STUDIO",
+    "links": [
+      {
+        "label": "Work",
+        "href": "#portfolio"
+      },
+      {
+        "label": "Capabilities",
+        "href": "#capabilities"
+      },
+      {
+        "label": "Pricing",
+        "href": "#pricing"
+      },
+      {
+        "label": "FAQ",
+        "href": "#faq"
+      }
+    ],
+    "cta": {
+      "label": "Work With Us",
+      "href": "#contact"
+    }
+  },
+  "sections": [
+    {
+      "type": "hero",
+      "badge": "AWARD-WINNING DIGITAL STUDIO",
+      "headline": "Curated for Bold Ambition",
+      "subheadline": "A focused digital studio building brands, interfaces, and stories that earn attention. We partner with founders and teams to shape ideas into polished digital products.",
+      "primaryCta": {
+        "label": "Start an Engagement",
+        "href": "#contact"
+      },
+      "secondaryCta": {
+        "label": "Explore Capabilities",
+        "href": "#capabilities"
+      },
+      "metrics": [
+        {
+          "label": "DELIVERY VELOCITY",
+          "value": "14 DAYS"
+        },
+        {
+          "label": "CLIENT ENGAGEMENT",
+          "value": "3.8X"
+        },
+        {
+          "label": "SYSTEM RELIABILITY",
+          "value": "99.9%"
+        }
+      ]
+    },
+    {
+      "type": "portfolio",
+      "tag": "PORTFOLIO ARCHIVE",
+      "title": "Selected Works & Case Studies",
+      "subtitle": "A curated archive of flagships and systems engineered for market-defining brands.",
+      "projects": [
+        {
+          "title": "KRONOS HYPER-CHRONO",
+          "client": "Swiss Horology",
+          "category": "3D Spatial Flagship",
+          "impact": "+320% Presales"
+        },
+        {
+          "title": "ATELIER VOGUE",
+          "client": "Haute Parfumerie",
+          "category": "Editorial E-Commerce",
+          "impact": "Awwwards Site of the Day"
+        },
+        {
+          "title": "NEURA LABS",
+          "client": "Silicon Valley AI",
+          "category": "Brand Identity & Web",
+          "impact": "$45M Series B"
+        },
+        {
+          "title": "VELOX MOBILITY",
+          "client": "Autonomous EV",
+          "category": "Interactive Experience",
+          "impact": "1.2M Unique Visits"
+        }
+      ]
+    },
+    {
+      "type": "bento",
+      "tag": "CAPABILITIES MATRIX",
+      "title": "Engineered For Impact",
+      "subtitle": "Comprehensive design, spatial 3D interfaces, and high-conversion engineering.",
+      "items": [
+        {
+          "title": "Brand Identity",
+          "desc": "Crafting distinctive visual identities that capture attention and communicate brand values.",
+          "icon": "Sparkles",
+          "outcome": "A memorable brand that stands out.",
+          "badge": "01",
+          "span": "col-span-2"
+        },
+        {
+          "title": "Web Design",
+          "desc": "Designing refined digital experiences that guide users and drive engagement.",
+          "icon": "Layers",
+          "outcome": "A website that converts visitors into customers.",
+          "badge": "02",
+          "span": "col-span-1"
+        },
+        {
+          "title": "Campaign",
+          "desc": "Developing creative campaigns that move people and leave a mark.",
+          "icon": "Zap",
+          "outcome": "Campaigns that generate buzz and results.",
+          "badge": "03",
+          "span": "col-span-1"
+        },
+        {
+          "title": "Art Direction",
+          "desc": "Providing visual direction that ensures cohesive and impactful storytelling.",
+          "icon": "Compass",
+          "outcome": "A consistent and compelling visual narrative.",
+          "badge": "04",
+          "span": "col-span-2"
+        }
+      ]
+    },
+    {
+      "type": "pricing",
+      "tag": "ENGAGEMENTS",
+      "title": "Transparent Collaboration",
+      "subtitle": "Structured sprint models and dedicated engineering retainers.",
+      "tiers": [
+        {
+          "name": "Sprint",
+          "price": "$8,500",
+          "period": "/ project",
+          "features": [
+            "High-impact landing experience",
+            "Full 3D WebGL integration",
+            "Framer Motion v13 system",
+            "Vercel-ready Next.js 15 code",
+            "2 weeks delivery"
+          ]
+        },
+        {
+          "name": "Studio Flagship",
+          "price": "$18,000",
+          "period": "/ project",
+          "popular": true,
+          "features": [
+            "Complete brand identity & 3D world",
+            "Multi-page Next.js architecture",
+            "Custom GLSL shaders & audio haptics",
+            "Design system token vault",
+            "Dedicated senior art director"
+          ]
+        },
+        {
+          "name": "Partner Retainer",
+          "price": "$6,500",
+          "period": "/ month",
+          "features": [
+            "Continuous digital evolution",
+            "Bi-weekly design & code sprints",
+            "Priority creative engineering",
+            "Direct Slack access to founders"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "faq",
+      "tag": "FAQS",
+      "title": "Frequently Asked Questions",
+      "faqs": [
+        {
+          "q": "How is this different from a standard Webflow or Framer build?",
+          "a": "We transform visual concepts into native, production-grade Next.js 15 App Router code with custom Three.js WebGL2 shaders and hardware-accelerated Motion, completely free of any CMS hosting lock-in."
+        },
+        {
+          "q": "Can we deploy the generated repository straight to Vercel?",
+          "a": "Yes! The codebase is 100% type-safe TypeScript, includes full tailwind tokens, zero watermarks, and imports into Vercel with one click."
+        },
+        {
+          "q": "What is the typical delivery timeline?",
+          "a": "Our focused Sprint projects ship within 14 days. Comprehensive flagships with custom 3D models ship within 4 to 6 weeks."
+        }
+      ]
+    },
+    {
+      "type": "cta",
+      "headline": "Ready to build your next iconic flagship?",
+      "subheadline": "Let’s turn ambitious architecture into high-performing reality.",
+      "ctaText": "Book a Strategy Call"
+    }
+  ],
+  "footer": {
+    "copyright": "© 2026 Pixera Studio. Powered by Nümtema Experience Engine.",
+    "links": [
+      {
+        "label": "Capabilities",
+        "href": "#capabilities"
+      },
+      {
+        "label": "Pricing",
+        "href": "#pricing"
+      },
+      {
+        "label": "FAQ",
+        "href": "#faq"
+      }
+    ]
+  }
+}
