@@ -1,15 +1,16 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Compass } from 'lucide-react';
 import { WebJSONHeroSection } from '@/types/webjson';
 
 interface HeroProps {
   section: WebJSONHeroSection;
   accentColor: string;
+  onExploreAtlas?: () => void;
 }
 
-export const HeroSection: React.FC<HeroProps> = ({ section, accentColor }) => {
+export const HeroSection: React.FC<HeroProps> = ({ section, accentColor, onExploreAtlas }) => {
   return (
     <section className="relative pt-44 pb-28 px-6 text-center space-y-8 max-w-4xl mx-auto">
       <div
@@ -31,20 +32,20 @@ export const HeroSection: React.FC<HeroProps> = ({ section, accentColor }) => {
       <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
         <a
           href={section.primaryCta.href}
-          className="w-full sm:w-auto px-8 py-4 rounded-full text-sm font-bold text-[#090706] hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl"
+          className="w-full sm:w-auto px-8 py-4 rounded-full text-sm font-bold text-[#090706] hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer"
           style={{ backgroundColor: accentColor, boxShadow: `0 12px 30px -6px ${accentColor}50` }}
         >
           <span>{section.primaryCta.label}</span>
           <ArrowRight className="w-4 h-4" />
         </a>
-        {section.secondaryCta && (
-          <a
-            href={section.secondaryCta.href}
-            className="w-full sm:w-auto px-7 py-4 rounded-full text-sm font-semibold text-[#f5efe9] bg-[#1a1410] border border-[#2e2724] hover:bg-[#221c19] transition-all flex items-center justify-center gap-2"
+        {onExploreAtlas && (
+          <button
+            onClick={onExploreAtlas}
+            className="w-full sm:w-auto px-7 py-4 rounded-full text-sm font-semibold text-[#f5efe9] bg-[#1a1410] border border-[#2e2724] hover:bg-[#221c19] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>{section.secondaryCta.label}</span>
-            <ArrowUpRight className="w-4 h-4 text-[#a89f91]" />
-          </a>
+            <Compass className="w-4 h-4" style={{ color: accentColor }} />
+            <span>Switch to Free Spatial Atlas</span>
+          </button>
         )}
       </div>
 
