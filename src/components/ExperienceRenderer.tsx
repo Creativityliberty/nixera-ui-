@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
+import Lenis from 'lenis';
 import { 
   Sparkles, ArrowRight, ArrowUpRight, Check, Plus, Minus,
   Layers, Compass, Zap, Workflow, Bot, Globe, ShieldCheck,
   Activity, Eye, ChevronRight, Sliders, Volume2, VolumeX,
-  Play, Terminal, Clock, Flame
+  Play, Terminal, Clock, Flame, ChevronDown, CheckCircle2, Lock
 } from 'lucide-react';
 import { EngineCanvas } from './canvas/EngineCanvas';
 import { TactileCard } from './ui/TactileCard';
@@ -26,18 +27,58 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [methodStep, setMethodStep] = useState<number>(0);
   const [fieldComparison, setFieldComparison] = useState<number>(65);
+  const [activeTab, setActiveTab] = useState<'flagships' | 'spatial' | 'motion' | 'systems'>('flagships');
   const [estimator, setEstimator] = useState({
     goal: 'Spatial Experience',
     scope: 'Flagship + 3D System',
     timeline: '4-6 Weeks',
   });
-  const [telemetry, setTelemetry] = useState({ fps: '60', memory: '28MB', latency: '4ms', sync: 'LIVE' });
+  const [telemetry, setTelemetry] = useState({ fps: '60', latency: '2.4ms', dpr: '2.0', sync: 'LIVE' });
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
-  const accent = data.theme.accentColor || '#C61C09';
-  const brandName = data.meta.brandName || 'Pixera Studio';
+  const accent = data.theme?.accentColor || '#C61C09';
+  const brandName = data.meta?.brandName || 'Pixera Studio';
+
+  // ── 1. LENIS BUTTERY SMOOTH MOMENTUM SCROLL ──────────────────────────────
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.25,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1.05,
+      touchMultiplier: 2.0,
+    });
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+
+    lenis.on('scroll', (e: any) => {
+      const progress = e.progress || 0;
+      setScrollProgress(progress);
+
+      if (progress < 0.2) setTemperature('cold-ink');
+      else if (progress < 0.45) setTemperature('warm-charcoal');
+      else if (progress < 0.7) setTemperature('carmin-ember');
+      else if (progress < 0.88) setTemperature('cyan-night');
+      else setTemperature('deep-ink');
+    });
+
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
+
+  const marqueeClients = [
+    'SWISS HOROLOGY', 'VESPER GENEVA', 'MAISON ELYSIAN', 'NEURA LABS AI', 
+    'VELOX MOBILITY', 'KRONOS LABS', 'ATELIER VOGUE', 'AETHER AUDIO', 'NÜMTEMA OS'
+  ];
 
   const projects = [
     {
@@ -48,6 +89,7 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       year: '2026',
       accent: '#C61C09',
       desc: 'Interactive WebGL timepiece customizer delivering photorealistic diamond-cut reflections and micro-haptic crown physics.',
+      tags: ['Three.js WebGL2', 'Custom GLSL Shaders', 'Spatial HUD'],
     },
     {
       title: 'ATELIER VOGUE',
@@ -56,7 +98,8 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       impact: 'Awwwards Site of the Day',
       year: '2025',
       accent: '#e8b4a0',
-      desc: 'Cinematic sensory commerce with fluid typography and dynamic aroma visualization shaders.',
+      desc: 'Cinematic sensory commerce with fluid editorial typography and dynamic aroma visualization shaders.',
+      tags: ['Editorial Design', 'Lenis Smooth Scroll', 'Next.js 15'],
     },
     {
       title: 'NEURA LABS',
@@ -66,6 +109,7 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       year: '2026',
       accent: '#38bdf8',
       desc: 'Autonomous agent runtime dashboard with sub-50ms glass HUDs and live telemetry streams.',
+      tags: ['Next.js 15 App Router', 'Live Telemetry', 'Micro-Interactions'],
     },
     {
       title: 'VELOX MOBILITY',
@@ -75,6 +119,7 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       year: '2026',
       accent: '#22c55e',
       desc: 'Full-screen 3D vehicle configurator with real-time aerodynamics simulation and custom GLSL lighting.',
+      tags: ['GLTF 3D Models', 'Spatial Continuum', 'Vercel Edge'],
     },
   ];
 
@@ -83,7 +128,7 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       badge: '01',
       title: 'Brand Architecture & Identity',
       desc: 'Custom visual systems, proprietary typography, and design tokens that command premium market authority.',
-      outcome: 'Unmistakable brand positioning',
+      outcome: 'Unmistakable market authority',
       icon: Compass,
       tags: ['Token Architecture', 'Type Systems', 'Art Direction'],
     },
@@ -178,25 +223,6 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
     },
   ];
 
-  // Scroll listener for temperature gradation
-  useEffect(() => {
-    const handleScroll = () => {
-      const totalH = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalH <= 0) return;
-      const p = Math.min(Math.max(window.scrollY / totalH, 0), 1);
-      setScrollProgress(p);
-
-      if (p < 0.2) setTemperature('cold-ink');
-      else if (p < 0.45) setTemperature('warm-charcoal');
-      else if (p < 0.7) setTemperature('carmin-ember');
-      else if (p < 0.88) setTemperature('cyan-night');
-      else setTemperature('deep-ink');
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   const handleSelectFromAtlas = (title: string) => {
     setActiveProject(title);
     setNavMode('journey');
@@ -209,7 +235,21 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
   return (
     <div className="relative w-full min-h-screen bg-[#090706] text-[#f5efe9] antialiased selection:bg-[#C61C09] selection:text-[#090706] overflow-x-hidden font-sans">
       
-      {/* ── 00 SHUTTER PORTAL ENTRY ───────────────────────────────────────── */}
+      {/* ── 0.1 CINEMATIC FILM GRAIN NOISE & RADIAL AMBIENT GLOW ──────────── */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-[1] opacity-20 mix-blend-overlay"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+        }}
+      />
+      <div 
+        className="fixed inset-0 pointer-events-none z-[1]"
+        style={{
+          background: 'radial-gradient(circle at 50% 15%, rgba(198,28,9,0.12) 0%, rgba(9,7,6,0.95) 85%)'
+        }}
+      />
+
+      {/* ── 0.2 SHUTTER PORTAL ENTRY ──────────────────────────────────────── */}
       <AnimatePresence>
         {!shutterOpen && (
           <motion.div
@@ -220,20 +260,26 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
           >
             <div className="flex items-center justify-between text-xs font-mono text-[#a89f91]">
               <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#C61C09] animate-pulse" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#C61C09] animate-pulse" />
                 NÜMTEMA M03.7 • GOLDEN SPECIFICATION
               </span>
               <span>PARIS • ZURICH • TOKYO</span>
             </div>
 
             <div className="max-w-4xl mx-auto text-center space-y-8">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#140f0c] border border-[#2e2724] text-xs font-mono text-[#C61C09]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#140f0c] border border-[#2e2724] text-xs font-mono text-[#C61C09]"
+              >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{brandName.toUpperCase()} • DUAL-MODE CINEMATIC WORLD</span>
-              </div>
+              </motion.div>
               <h1 className="text-4xl sm:text-7xl md:text-8xl font-black tracking-tight leading-[1.02]">
                 Curated for <br />
-                <span className="text-[#C61C09]">Bold Ambition.</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f5efe9] via-[#ffffff] to-[#C61C09]">
+                  Bold Ambition.
+                </span>
               </h1>
               <p className="text-base sm:text-xl text-[#a89f91] max-w-xl mx-auto leading-relaxed">
                 A focused digital studio building flagships, spatial interfaces, and brand universes that command attention.
@@ -275,13 +321,13 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       />
 
       {/* ── FLOATING TELEMETRY HUD BADGE ─────────────────────────────────── */}
-      <div className="fixed bottom-6 left-6 z-40 hidden lg:flex items-center gap-4 px-4 py-2 rounded-full bg-[#140f0c]/90 backdrop-blur-xl border border-[#2e2724] text-[11px] font-mono text-[#a89f91] shadow-2xl">
+      <div className="fixed bottom-6 left-6 z-40 hidden lg:flex items-center gap-4 px-4 py-2 rounded-full bg-[#140f0c]/90 backdrop-blur-2xl border border-[#2e2724] text-[11px] font-mono text-[#a89f91] shadow-2xl">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-[#C61C09] animate-pulse" />
           <span className="text-[#f5efe9] font-bold">{brandName.toUpperCase()} ENGINE</span>
         </div>
         <span className="text-[#2e2724]">|</span>
-        <span>FPS: {telemetry.fps}</span>
+        <span>LATENCY: {telemetry.latency}</span>
         <span className="text-[#2e2724]">|</span>
         <span className="text-[#C61C09] font-bold">TEMP: {temperature.toUpperCase()}</span>
       </div>
@@ -290,9 +336,13 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
       <nav className="fixed top-0 inset-x-0 z-40 bg-[#090706]/85 backdrop-blur-2xl border-b border-[#2e2724]">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <a href="#" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-[#C61C09] text-white flex items-center justify-center font-black text-sm shadow-lg shadow-[#C61C09]/30">
+            <motion.div 
+              whileHover={{ rotate: 90, scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#C61C09] to-[#8a1205] text-white flex items-center justify-center font-black text-sm shadow-lg shadow-[#C61C09]/30"
+            >
               P
-            </div>
+            </motion.div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-lg tracking-tight text-[#f5efe9]">{brandName}</span>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#1a1410] text-[#a89f91] border border-[#2e2724]">
@@ -332,13 +382,15 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
               <a href="#pricing" className="hover:text-[#f5efe9] transition-colors">Pricing</a>
               <a href="#faq" className="hover:text-[#f5efe9] transition-colors">FAQ</a>
             </div>
-            <a
+            <motion.a
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
               href="#contact"
               className="px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-[#C61C09] hover:bg-[#d9220e] transition-all flex items-center gap-1.5 shadow-lg shadow-[#C61C09]/25"
             >
               <span>Work With Us</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </motion.a>
           </div>
         </div>
       </nav>
@@ -413,58 +465,110 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
         </div>
       ) : (
         /* ── 12-ACT GUIDED JOURNEY CONTINUUM (MODE 1) ─────────────────────── */
-        <main className="relative z-10 max-w-7xl mx-auto px-6 space-y-40 pt-44 pb-36">
+        <main className="relative z-10 max-w-7xl mx-auto px-6 space-y-48 pt-44 pb-36">
           
-          {/* ACT 00: HERO FLAGSHIP HUD */}
-          <section className="relative text-center space-y-8 max-w-4xl mx-auto min-h-[70vh] flex flex-col justify-center items-center">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#140f0c] border border-[#2e2724] text-[#C61C09] text-xs font-mono font-semibold">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>AWARD-WINNING DIGITAL STUDIO • NEXT.JS 15</span>
-            </div>
+          {/* ACT 00: HERO FLAGSHIP HUD WITH SPATIAL GLASS CARD */}
+          <section className="relative text-center space-y-8 max-w-4xl mx-auto min-h-[75vh] flex flex-col justify-center items-center">
+            
+            {/* Subtle Carmin Rose Glow */}
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[350px] bg-[#C61C09]/15 blur-[160px] rounded-full pointer-events-none -z-10" />
 
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-[1.02] text-[#f5efe9]">
-              Curated for <br />
-              <span className="text-[#C61C09]">Bold Ambition.</span>
-            </h1>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-6"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#140f0c] border border-[#2e2724] text-[#C61C09] text-xs font-mono font-semibold backdrop-blur-md">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AWARD-WINNING DIGITAL STUDIO • NEXT.JS 15</span>
+              </div>
 
-            <p className="text-base sm:text-xl text-[#a89f91] max-w-2xl mx-auto leading-relaxed">
-              A focused digital studio building brands, interfaces, and stories that earn attention. We partner with founders and teams to shape ideas into polished digital products.
-            </p>
+              <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-[1.02] text-[#f5efe9]">
+                Curated for <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f5efe9] via-[#ffffff] to-[#C61C09]">
+                  Bold Ambition.
+                </span>
+              </h1>
 
-            <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="#contact"
-                className="px-8 py-4 rounded-full bg-[#C61C09] hover:bg-[#d9220e] text-white font-bold text-sm transition-all shadow-2xl shadow-[#C61C09]/30 flex items-center gap-2"
-              >
-                <span>Start an Engagement</span>
-                <ArrowRight className="w-4 h-4" />
-              </a>
-              <button
-                onClick={() => setNavMode('atlas')}
-                className="px-7 py-4 rounded-full bg-[#140f0c] border border-[#2e2724] text-[#f5efe9] hover:bg-[#1a1410] font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer shadow-xl"
-              >
-                <Compass className="w-4 h-4 text-[#C61C09]" />
-                <span>Explore Spatial Atlas</span>
-              </button>
-            </div>
+              <p className="text-base sm:text-xl text-[#a89f91] max-w-2xl mx-auto leading-relaxed">
+                A focused digital studio building brands, interfaces, and stories that earn attention. We partner with founders and teams to shape ideas into polished digital products.
+              </p>
 
-            {/* Velocity Proof Metrics */}
-            <div className="pt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl border-t border-[#2e2724]">
-              {[
-                { val: '14 DAYS', label: 'DELIVERY VELOCITY' },
-                { val: '3.8X', label: 'CLIENT ENGAGEMENT' },
-                { val: '99.9%', label: 'SYSTEM RELIABILITY' },
-              ].map((m, idx) => (
-                <div key={idx} className="space-y-1">
-                  <div className="text-3xl font-black font-mono text-[#f5efe9]">{m.val}</div>
-                  <div className="text-[11px] font-mono text-[#a89f91] uppercase tracking-widest">{m.label}</div>
+              <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
+                <motion.a
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  href="#contact"
+                  className="px-8 py-4 rounded-full bg-[#C61C09] hover:bg-[#d9220e] text-white font-bold text-sm transition-all shadow-2xl shadow-[#C61C09]/30 flex items-center gap-2"
+                >
+                  <span>Start an Engagement</span>
+                  <ArrowRight className="w-4 h-4" />
+                </motion.a>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setNavMode('atlas')}
+                  className="px-7 py-4 rounded-full bg-[#140f0c] border border-[#2e2724] text-[#f5efe9] hover:bg-[#1a1410] font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer shadow-xl backdrop-blur-md"
+                >
+                  <Compass className="w-4 h-4 text-[#C61C09]" />
+                  <span>Explore Spatial Atlas</span>
+                </motion.button>
+              </div>
+            </motion.div>
+
+            {/* Spatial Glass Card HUD Stack Showcase */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.92, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+              className="pt-12 w-full max-w-3xl mx-auto relative perspective-[1200px]"
+            >
+              <div className="relative rounded-[32px] p-6 sm:p-8 bg-[#1a1410]/75 backdrop-blur-3xl border border-[#C61C09]/30 shadow-2xl shadow-black/90 space-y-6">
+                <div className="flex items-center justify-between border-b border-[#2e2724] pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#C61C09] shadow-sm shadow-[#C61C09]" />
+                    <span className="text-xs font-mono font-bold text-[#f5efe9] tracking-wider uppercase">
+                      PIXERA SPATIAL CONTINUUM ENGINE
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#221c19] border border-[#2e2724] text-[#C61C09] font-mono text-[11px]">
+                    v4.2 PRO
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    { label: 'DELIVERY VELOCITY', val: '14 DAYS', sub: 'Sprint Format' },
+                    { label: 'CLIENT ENGAGEMENT', val: '3.8X', sub: 'Interactive 3D' },
+                    { label: 'SYSTEM RELIABILITY', val: '99.9%', sub: 'Zero Lag' },
+                  ].map((hud, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-[#140f0c]/90 border border-[#2e2724] text-left space-y-1">
+                      <div className="text-[10px] font-mono text-[#a89f91]">{hud.label}</div>
+                      <div className="text-2xl font-black font-mono text-[#f5efe9]">{hud.val}</div>
+                      <div className="text-xs text-[#C61C09]">{hud.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+
+          </section>
+
+          {/* ── CLIENT TICKER MARQUEE ──────────────────────────────────────── */}
+          <div className="py-8 border-y border-[#2e2724] overflow-hidden -mx-6">
+            <div className="flex items-center gap-12 whitespace-nowrap animate-marquee">
+              {marqueeClients.concat(marqueeClients).map((c, i) => (
+                <div key={i} className="flex items-center gap-8 text-xs font-mono uppercase tracking-widest text-[#786e64] hover:text-[#f5efe9] transition-colors">
+                  <span>{c}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C61C09]" />
                 </div>
               ))}
             </div>
-          </section>
+          </div>
 
           {/* ACT 01: SCROLL-LIT MANIFESTO */}
-          <section className="p-8 sm:p-14 rounded-[36px] bg-[#140f0c]/90 border border-[#2e2724] backdrop-blur-2xl space-y-8 max-w-4xl mx-auto shadow-2xl">
+          <section className="p-8 sm:p-16 rounded-[36px] bg-[#140f0c]/90 border border-[#2e2724] backdrop-blur-3xl space-y-8 max-w-4xl mx-auto shadow-2xl">
             <div className="text-xs font-mono text-[#C61C09] uppercase tracking-widest font-semibold">
               ACT 01 • SCROLL-LIT MANIFESTO
             </div>
@@ -538,6 +642,14 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
                           {proj.title}
                         </h3>
                         <p className="text-sm text-[#a89f91] leading-relaxed">{proj.desc}</p>
+                        
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {proj.tags.map((tag, tIdx) => (
+                            <span key={tIdx} className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-[#1e1713] text-[#a89f91] border border-[#2e2724]">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="pt-6 border-t border-[#2e2724] flex items-center justify-between text-xs">
