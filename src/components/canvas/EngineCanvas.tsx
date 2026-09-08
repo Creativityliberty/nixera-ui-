@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 interface EngineCanvasProps {
   navMode: 'journey' | 'atlas';
@@ -17,8 +18,6 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
   atlasPan,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const coreRef = useRef<THREE.Mesh | null>(null);
-  const wireRef = useRef<THREE.Mesh | null>(null);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -28,10 +27,10 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x090706, 0.028);
+    scene.fog = new THREE.FogExp2(0x090706, 0.025);
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-    camera.position.set(0, 1.4, 9);
+    camera.position.set(0, 1.2, 8.5);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -39,42 +38,78 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.35;
     container.appendChild(renderer.domElement);
 
-    // 1. Central Brand Monolith Core (Icosahedron with Carmin #C61C09 Glow)
-    const coreGeo = new THREE.IcosahedronGeometry(1.6, 3);
-    const coreMat = new THREE.MeshPhysicalMaterial({
-      color: 0x141216,
-      emissive: 0xc61c09,
-      emissiveIntensity: 0.25,
-      roughness: 0.18,
-      metalness: 0.88,
-      clearcoat: 0.8,
-      transmission: 0.45,
-      thickness: 0.8,
-    });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    coreMesh.position.set(0, 1.2, 0);
-    scene.add(coreMesh);
-    coreRef.current = coreMesh;
+    // ── DIAMOND PRISM GROUP (BLENDER ASSET + SHADERS) ─────────────────────────
+    const diamondGroup = new THREE.Group();
+    diamondGroup.position.set(0, 1.1, 0);
+    scene.add(diamondGroup);
 
-    const wireMat = new THREE.MeshBasicMaterial({
-      color: 0xe02d18,
+    // Diamond Material (Refractive Luxury Crystal IOR: 2.417)
+    const diamondMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      emissive: 0xc61c09,
+      emissiveIntensity: 0.18,
+      roughness: 0.03,
+      metalness: 0.1,
+      transmission: 0.94,
+      ior: 2.417,
+      thickness: 1.2,
+      specularIntensity: 1.0,
+      specularColor: new THREE.Color(0xffffff),
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.02,
+      transparent: true,
+      opacity: 0.95,
+      reflectivity: 1.0,
+    });
+
+    const wireframeMat = new THREE.MeshBasicMaterial({
+      color: 0xff5a2d,
       wireframe: true,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.35,
     });
-    const wireMesh = new THREE.Mesh(coreGeo, wireMat);
-    wireMesh.position.copy(coreMesh.position);
-    scene.add(wireMesh);
-    wireRef.current = wireMesh;
 
-    // 2. Orbital Halo Rings
+    let loadedDiamondMesh: THREE.Object3D | null = null;
+
+    // Load Blender GLB Diamond Model
+    const loader = new GLTFLoader();
+    loader.load(
+      '/models/diamond_lozenge.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(1.4, 1.4, 1.4);
+        model.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.material = diamondMat;
+
+            // Add wireframe cage
+            const wireClone = new THREE.Mesh(mesh.geometry, wireframeMat);
+            wireClone.scale.set(1.002, 1.002, 1.002);
+            model.add(wireClone);
+          }
+        });
+        diamondGroup.add(model);
+        loadedDiamondMesh = model;
+      },
+      undefined,
+      (err) => {
+        // Procedural Fallback Diamond if GLB path is delayed
+        const fallbackGeo = new THREE.OctahedronGeometry(1.6, 2);
+        const fallbackMesh = new THREE.Mesh(fallbackGeo, diamondMat);
+        diamondGroup.add(fallbackMesh);
+        loadedDiamondMesh = fallbackMesh;
+      }
+    );
+
+    // ── ORBITAL HALO LIGHT RINGS ─────────────────────────────────────────────
     const haloGeo = new THREE.TorusGeometry(3.6, 0.02, 16, 100);
-    const haloMat = new THREE.MeshBasicMaterial({ color: 0xc61c09, transparent: true, opacity: 0.35 });
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0xc61c09, transparent: true, opacity: 0.4 });
     const halo1 = new THREE.Mesh(haloGeo, haloMat);
     halo1.rotation.x = Math.PI / 2.3;
     scene.add(halo1);
@@ -84,7 +119,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     halo2.rotation.x = Math.PI / 4;
     scene.add(halo2);
 
-    // 3. 4-Plate Spatial Glass Stack
+    // ── 4-PLATE SUSPENDED SPATIAL GLASS STACK ─────────────────────────────────
     const plateGeo = new THREE.BoxGeometry(3.6, 2.2, 0.05);
     const plates: THREE.Mesh[] = [];
 
@@ -92,39 +127,43 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       const pMat = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color('#C61C09'),
         metalness: 0.1,
-        roughness: 0.15,
-        transmission: 0.75,
+        roughness: 0.12,
+        transmission: 0.8,
         thickness: 0.4,
         transparent: true,
-        opacity: 0.8 - i * 0.14,
+        opacity: 0.75 - i * 0.14,
         reflectivity: 0.9,
       });
 
       const plate = new THREE.Mesh(plateGeo, pMat);
-      plate.position.set((i - 1.5) * 0.4, (i - 1.5) * 0.25, (i - 1.5) * -0.7 - 2);
+      plate.position.set((i - 1.5) * 0.4, (i - 1.5) * 0.25, (i - 1.5) * -0.7 - 2.5);
       plate.rotation.set(0.15, -0.2 + i * 0.08, 0.05);
       scene.add(plate);
       plates.push(plate);
     }
 
-    // 4. Lights
-    const keyLight = new THREE.SpotLight(0xc61c09, 22, 30, Math.PI / 3, 0.4);
-    keyLight.position.set(6, 9, 8);
-    scene.add(keyLight);
+    // ── DIAMOND SPARKLE LIGHTS ───────────────────────────────────────────────
+    const keySpot = new THREE.SpotLight(0xffffff, 25, 35, Math.PI / 3, 0.3);
+    keySpot.position.set(5, 8, 8);
+    scene.add(keySpot);
 
-    const ambLight = new THREE.AmbientLight(0x181822, 2.2);
-    scene.add(ambLight);
+    const carminSpot = new THREE.SpotLight(0xc61c09, 30, 30, Math.PI / 3, 0.4);
+    carminSpot.position.set(-6, -4, 6);
+    scene.add(carminSpot);
 
-    const cyanPoint = new THREE.PointLight(0x38bdf8, 8, 20);
-    cyanPoint.position.set(-6, 2, -12);
+    const ambientLight = new THREE.AmbientLight(0x221815, 2.5);
+    scene.add(ambientLight);
+
+    const cyanPoint = new THREE.PointLight(0x38bdf8, 12, 18);
+    cyanPoint.position.set(0, 4, -4);
     scene.add(cyanPoint);
 
     // Mouse Pointer Tracker
     let mouseX = 0;
     let mouseY = 0;
     let targetCamX = 0;
-    let targetCamY = 1.4;
-    let targetCamZ = 9;
+    let targetCamY = 1.2;
+    let targetCamZ = 8.5;
 
     const onPointerMove = (e: MouseEvent) => {
       mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -139,11 +178,11 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       animId = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Core rotation
-      if (coreMesh) {
-        coreMesh.rotation.y = elapsed * 0.22;
-        coreMesh.rotation.x = Math.sin(elapsed * 0.15) * 0.18;
-        wireMesh.rotation.copy(coreMesh.rotation);
+      // Diamond Lozenge slow jewelry rotation
+      if (diamondGroup) {
+        diamondGroup.rotation.y = elapsed * 0.35 + mouseX * 0.3;
+        diamondGroup.rotation.x = Math.sin(elapsed * 0.25) * 0.15 - mouseY * 0.2;
+        diamondGroup.position.y = 1.1 + Math.sin(elapsed * 0.8) * 0.08;
       }
 
       halo1.rotation.z = elapsed * 0.12;
@@ -156,9 +195,9 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       // Camera Driver from Scroll & Navigation Mode
       if (navMode === 'journey') {
         const scrollZ = scrollProgress * 22;
-        targetCamZ = 9 - scrollZ;
+        targetCamZ = 8.5 - scrollZ;
         targetCamX = mouseX * 0.45;
-        targetCamY = 1.4 + mouseY * 0.35;
+        targetCamY = 1.2 + mouseY * 0.35;
       } else {
         targetCamZ = 16 / (atlasPan.zoom || 1);
         targetCamX = atlasPan.x * 0.08 + mouseX * 0.6;
@@ -186,9 +225,10 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       window.removeEventListener('mousemove', onPointerMove);
       window.removeEventListener('resize', onResize);
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-      coreGeo.dispose();
       haloGeo.dispose();
       plateGeo.dispose();
+      diamondMat.dispose();
+      wireframeMat.dispose();
       renderer.dispose();
     };
   }, [navMode, scrollProgress, atlasPan, activeProject]);
