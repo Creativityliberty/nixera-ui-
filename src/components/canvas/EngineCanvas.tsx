@@ -236,7 +236,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
-    const baseCamRadius = 17.5;
+    const baseCamRadius = 14.5;
 
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       isDragging = true;
@@ -253,9 +253,9 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       if (isDragging) {
         const deltaX = clientX - prevMouseX;
         const deltaY = clientY - prevMouseY;
-        targetCamAngleX += deltaX * 0.005;
-        targetCamAngleY += deltaY * 0.0035;
-        targetCamAngleY = Math.max(-0.5, Math.min(0.5, targetCamAngleY));
+        targetCamAngleX += deltaX * 0.006;
+        targetCamAngleY += deltaY * 0.004;
+        targetCamAngleY = Math.max(-0.45, Math.min(0.45, targetCamAngleY));
         prevMouseX = clientX;
         prevMouseY = clientY;
       }
@@ -265,10 +265,10 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       isDragging = false;
     };
 
-    window.addEventListener('mousedown', onPointerDown);
+    container.addEventListener('mousedown', onPointerDown);
     window.addEventListener('mousemove', onPointerMove);
     window.addEventListener('mouseup', onPointerUp);
-    window.addEventListener('touchstart', onPointerDown, { passive: true });
+    container.addEventListener('touchstart', onPointerDown, { passive: true });
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp);
 
@@ -362,10 +362,10 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
 
     return () => {
       cancelAnimationFrame(animationId);
-      window.removeEventListener('mousedown', onPointerDown);
+      container.removeEventListener('mousedown', onPointerDown);
       window.removeEventListener('mousemove', onPointerMove);
       window.removeEventListener('mouseup', onPointerUp);
-      window.removeEventListener('touchstart', onPointerDown);
+      container.removeEventListener('touchstart', onPointerDown);
       window.removeEventListener('touchmove', onPointerMove);
       window.removeEventListener('touchend', onPointerUp);
       window.removeEventListener('resize', handleResize);
