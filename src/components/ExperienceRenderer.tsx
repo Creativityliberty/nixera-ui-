@@ -517,41 +517,34 @@ export function ExperienceRenderer({ data }: ExperienceRendererProps) {
               </div>
             </motion.div>
 
-            {/* Spatial Glass Card HUD Stack Showcase */}
+            {/* Minimalist Interactive Diamond Hint Pill */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.92, y: 40 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="pt-12 w-full max-w-3xl mx-auto relative perspective-[1200px]"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.8 }}
+              className="pt-16 max-w-xl mx-auto"
             >
-              <div className="relative rounded-[32px] p-6 sm:p-8 bg-[#1a1410]/75 backdrop-blur-3xl border border-[#C61C09]/30 shadow-2xl shadow-black/90 space-y-6">
-                <div className="flex items-center justify-between border-b border-[#2e2724] pb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#C61C09] shadow-sm shadow-[#C61C09]" />
-                    <span className="text-xs font-mono font-bold text-[#f5efe9] tracking-wider uppercase">
-                      PIXERA SPATIAL CONTINUUM ENGINE
-                    </span>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#221c19] border border-[#2e2724] text-[#C61C09] font-mono text-[11px]">
-                    v4.2 PRO
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { label: 'DELIVERY VELOCITY', val: '14 DAYS', sub: 'Sprint Format' },
-                    { label: 'CLIENT ENGAGEMENT', val: '3.8X', sub: 'Interactive 3D' },
-                    { label: 'SYSTEM RELIABILITY', val: '99.9%', sub: 'Zero Lag' },
-                  ].map((hud, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-[#140f0c]/90 border border-[#2e2724] text-left space-y-1">
-                      <div className="text-[10px] font-mono text-[#a89f91]">{hud.label}</div>
-                      <div className="text-2xl font-black font-mono text-[#f5efe9]">{hud.val}</div>
-                      <div className="text-xs text-[#C61C09]">{hud.sub}</div>
-                    </div>
-                  ))}
-                </div>
+              <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-[#140f0c]/80 backdrop-blur-2xl border border-[#C61C09]/40 text-xs font-mono text-[#a89f91] shadow-2xl shadow-[#C61C09]/20">
+                <span className="w-2 h-2 rounded-full bg-[#C61C09] animate-ping" />
+                <span className="text-[#f5efe9] font-bold">TWIN DIAMOND CONTINUUM</span>
+                <span className="text-[#786e64]">|</span>
+                <span className="text-[#C61C09]">MOVE CURSOR TO IGNITE CORONAL BURST</span>
               </div>
             </motion.div>
+
+            {/* Velocity Proof Metrics */}
+            <div className="pt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl border-t border-[#2e2724]/60">
+              {[
+                { val: '14 DAYS', label: 'DELIVERY VELOCITY' },
+                { val: '3.8X', label: 'CLIENT ENGAGEMENT' },
+                { val: '99.9%', label: 'SYSTEM RELIABILITY' },
+              ].map((m, idx) => (
+                <div key={idx} className="space-y-1 text-center">
+                  <div className="text-3xl font-black font-mono text-[#f5efe9]">{m.val}</div>
+                  <div className="text-[11px] font-mono text-[#a89f91] uppercase tracking-widest">{m.label}</div>
+                </div>
+              ))}
+            </div>
 
           </section>
 

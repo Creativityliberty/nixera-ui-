@@ -27,7 +27,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x090706, 0.025);
+    scene.fog = new THREE.FogExp2(0x090706, 0.02);
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
     camera.position.set(0, 1.2, 8.5);
@@ -40,26 +40,20 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1.4;
     container.appendChild(renderer.domElement);
 
-    // ── DIAMOND PRISM GROUP (BLENDER ASSET + SHADERS) ─────────────────────────
-    const diamondGroup = new THREE.Group();
-    diamondGroup.position.set(0, 1.1, 0);
-    scene.add(diamondGroup);
-
-    // Diamond Material (Refractive Luxury Crystal IOR: 2.417)
-    const diamondMat = new THREE.MeshPhysicalMaterial({
+    // ── LUXURY DIAMOND REFRACTIVE MATERIAL (IOR: 2.417) ──────────────────────
+    const diamondMat1 = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       emissive: 0xc61c09,
-      emissiveIntensity: 0.18,
-      roughness: 0.03,
-      metalness: 0.1,
-      transmission: 0.94,
+      emissiveIntensity: 0.15,
+      roughness: 0.02,
+      metalness: 0.05,
+      transmission: 0.95,
       ior: 2.417,
-      thickness: 1.2,
+      thickness: 1.4,
       specularIntensity: 1.0,
-      specularColor: new THREE.Color(0xffffff),
       clearcoat: 1.0,
       clearcoatRoughness: 0.02,
       transparent: true,
@@ -67,98 +61,120 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       reflectivity: 1.0,
     });
 
-    const wireframeMat = new THREE.MeshBasicMaterial({
+    const diamondMat2 = diamondMat1.clone();
+    diamondMat2.emissive = new THREE.Color(0xff4422);
+
+    const wireMat = new THREE.MeshBasicMaterial({
       color: 0xff5a2d,
       wireframe: true,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.25,
     });
 
-    let loadedDiamondMesh: THREE.Object3D | null = null;
+    // ── DUAL DIAMOND GROUPS ──────────────────────────────────────────────────
+    const diamond1 = new THREE.Group();
+    const diamond2 = new THREE.Group();
+    diamond1.position.set(-1.8, 1.2, 0);
+    diamond2.position.set(1.8, 1.2, 0);
+    scene.add(diamond1);
+    scene.add(diamond2);
 
-    // Load Blender GLB Diamond Model
+    // ── CORONAL LIGHT BURST (CENTER PLASMA SPARK) ───────────────────────────
+    const burstGeo = new THREE.SphereGeometry(0.35, 32, 32);
+    const burstMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+    });
+    const burstMesh = new THREE.Mesh(burstGeo, burstMat);
+    burstMesh.position.set(0, 1.2, 0);
+    scene.add(burstMesh);
+
+    // Central Light Explosion Point
+    const burstLight = new THREE.PointLight(0xffffff, 0, 15, 2);
+    burstLight.position.set(0, 1.2, 0);
+    scene.add(burstLight);
+
+    const redGlowLight = new THREE.PointLight(0xc61c09, 0, 18, 1.5);
+    redGlowLight.position.set(0, 1.2, 0);
+    scene.add(redGlowLight);
+
+    // Sparkle Particle Field
+    const sparkGeo = new THREE.BufferGeometry();
+    const sparkCount = 40;
+    const sparkPositions = new Float32Array(sparkCount * 3);
+    for (let i = 0; i < sparkCount * 3; i += 3) {
+      sparkPositions[i] = (Math.random() - 0.5) * 1.5;
+      sparkPositions[i + 1] = 1.2 + (Math.random() - 0.5) * 1.5;
+      sparkPositions[i + 2] = (Math.random() - 0.5) * 1.5;
+    }
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+    const sparkMat = new THREE.PointsMaterial({
+      color: 0xff5a2d,
+      size: 0.08,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+    });
+    const sparkPoints = new THREE.Points(sparkGeo, sparkMat);
+    scene.add(sparkPoints);
+
+    // ── LOAD BLENDER 3D DIAMOND GLB ASSET ────────────────────────────────────
     const loader = new GLTFLoader();
     loader.load(
       '/models/diamond_lozenge.glb',
       (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(1.4, 1.4, 1.4);
-        model.traverse((child) => {
+        // Clone for Diamond 1 (Left)
+        const model1 = gltf.scene.clone();
+        model1.scale.set(1.3, 1.3, 1.3);
+        model1.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const mesh = child as THREE.Mesh;
-            mesh.material = diamondMat;
-
-            // Add wireframe cage
-            const wireClone = new THREE.Mesh(mesh.geometry, wireframeMat);
-            wireClone.scale.set(1.002, 1.002, 1.002);
-            model.add(wireClone);
+            mesh.material = diamondMat1;
+            const wire = new THREE.Mesh(mesh.geometry, wireMat);
+            wire.scale.set(1.002, 1.002, 1.002);
+            model1.add(wire);
           }
         });
-        diamondGroup.add(model);
-        loadedDiamondMesh = model;
+        diamond1.add(model1);
+
+        // Clone for Diamond 2 (Right)
+        const model2 = gltf.scene.clone();
+        model2.scale.set(1.3, 1.3, 1.3);
+        model2.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.material = diamondMat2;
+            const wire = new THREE.Mesh(mesh.geometry, wireMat);
+            wire.scale.set(1.002, 1.002, 1.002);
+            model2.add(wire);
+          }
+        });
+        diamond2.add(model2);
       },
       undefined,
-      (err) => {
-        // Procedural Fallback Diamond if GLB path is delayed
-        const fallbackGeo = new THREE.OctahedronGeometry(1.6, 2);
-        const fallbackMesh = new THREE.Mesh(fallbackGeo, diamondMat);
-        diamondGroup.add(fallbackMesh);
-        loadedDiamondMesh = fallbackMesh;
+      () => {
+        // Fallback procedural diamonds
+        const fallbackGeo = new THREE.OctahedronGeometry(1.4, 2);
+        diamond1.add(new THREE.Mesh(fallbackGeo, diamondMat1));
+        diamond2.add(new THREE.Mesh(fallbackGeo, diamondMat2));
       }
     );
 
-    // ── ORBITAL HALO LIGHT RINGS ─────────────────────────────────────────────
-    const haloGeo = new THREE.TorusGeometry(3.6, 0.02, 16, 100);
-    const haloMat = new THREE.MeshBasicMaterial({ color: 0xc61c09, transparent: true, opacity: 0.4 });
-    const halo1 = new THREE.Mesh(haloGeo, haloMat);
-    halo1.rotation.x = Math.PI / 2.3;
-    scene.add(halo1);
-
-    const halo2 = new THREE.Mesh(haloGeo, haloMat);
-    halo2.rotation.y = Math.PI / 3;
-    halo2.rotation.x = Math.PI / 4;
-    scene.add(halo2);
-
-    // ── 4-PLATE SUSPENDED SPATIAL GLASS STACK ─────────────────────────────────
-    const plateGeo = new THREE.BoxGeometry(3.6, 2.2, 0.05);
-    const plates: THREE.Mesh[] = [];
-
-    for (let i = 0; i < 4; i++) {
-      const pMat = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#C61C09'),
-        metalness: 0.1,
-        roughness: 0.12,
-        transmission: 0.8,
-        thickness: 0.4,
-        transparent: true,
-        opacity: 0.75 - i * 0.14,
-        reflectivity: 0.9,
-      });
-
-      const plate = new THREE.Mesh(plateGeo, pMat);
-      plate.position.set((i - 1.5) * 0.4, (i - 1.5) * 0.25, (i - 1.5) * -0.7 - 2.5);
-      plate.rotation.set(0.15, -0.2 + i * 0.08, 0.05);
-      scene.add(plate);
-      plates.push(plate);
-    }
-
-    // ── DIAMOND SPARKLE LIGHTS ───────────────────────────────────────────────
-    const keySpot = new THREE.SpotLight(0xffffff, 25, 35, Math.PI / 3, 0.3);
-    keySpot.position.set(5, 8, 8);
+    // ── SCENE LIGHTING ───────────────────────────────────────────────────────
+    const keySpot = new THREE.SpotLight(0xffffff, 18, 30, Math.PI / 3, 0.4);
+    keySpot.position.set(6, 9, 8);
     scene.add(keySpot);
 
-    const carminSpot = new THREE.SpotLight(0xc61c09, 30, 30, Math.PI / 3, 0.4);
-    carminSpot.position.set(-6, -4, 6);
+    const carminSpot = new THREE.SpotLight(0xc61c09, 20, 25, Math.PI / 3, 0.4);
+    carminSpot.position.set(-6, -3, 6);
     scene.add(carminSpot);
 
-    const ambientLight = new THREE.AmbientLight(0x221815, 2.5);
+    const ambientLight = new THREE.AmbientLight(0x181412, 2.0);
     scene.add(ambientLight);
 
-    const cyanPoint = new THREE.PointLight(0x38bdf8, 12, 18);
-    cyanPoint.position.set(0, 4, -4);
-    scene.add(cyanPoint);
-
-    // Mouse Pointer Tracker
+    // ── INTERACTIVE POINTER LISTENER ─────────────────────────────────────────
     let mouseX = 0;
     let mouseY = 0;
     let targetCamX = 0;
@@ -178,21 +194,55 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       animId = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Diamond Lozenge slow jewelry rotation
-      if (diamondGroup) {
-        diamondGroup.rotation.y = elapsed * 0.35 + mouseX * 0.3;
-        diamondGroup.rotation.x = Math.sin(elapsed * 0.25) * 0.15 - mouseY * 0.2;
-        diamondGroup.position.y = 1.1 + Math.sin(elapsed * 0.8) * 0.08;
-      }
+      // Convergence logic: how close the mouse or scroll brings the diamonds together
+      // Center proximity (cursor in middle = max attraction)
+      const centerDist = Math.hypot(mouseX, mouseY);
+      const proximityFactor = Math.max(0, 1 - centerDist * 1.1) + Math.min(scrollProgress * 2, 0.8);
+      const clampedProximity = Math.min(Math.max(proximityFactor, 0), 1);
 
-      halo1.rotation.z = elapsed * 0.12;
-      halo2.rotation.z = -elapsed * 0.09;
+      // Diamonds glide towards each other
+      const baseDistance = 1.8;
+      const currentOffset = THREE.MathUtils.lerp(baseDistance, 0.38, clampedProximity);
 
-      plates.forEach((p, idx) => {
-        p.position.y += Math.sin(elapsed * 0.8 + idx) * 0.0008;
-      });
+      diamond1.position.x = -currentOffset;
+      diamond2.position.x = currentOffset;
 
-      // Camera Driver from Scroll & Navigation Mode
+      // Vertical hover breathing
+      const hover1 = Math.sin(elapsed * 1.2) * 0.08;
+      const hover2 = Math.cos(elapsed * 1.2) * 0.08;
+      diamond1.position.y = 1.2 + hover1;
+      diamond2.position.y = 1.2 + hover2;
+
+      // Inverse rotations for luxury twin interaction
+      diamond1.rotation.y = elapsed * 0.45 + mouseX * 0.3;
+      diamond1.rotation.x = Math.sin(elapsed * 0.3) * 0.2 - mouseY * 0.2;
+      diamond1.rotation.z = Math.cos(elapsed * 0.25) * 0.15;
+
+      diamond2.rotation.y = -elapsed * 0.45 - mouseX * 0.3;
+      diamond2.rotation.x = -Math.sin(elapsed * 0.3) * 0.2 - mouseY * 0.2;
+      diamond2.rotation.z = -Math.cos(elapsed * 0.25) * 0.15;
+
+      // ── LIGHT BURST TRIGGER WHEN DIAMONDS GET CLOSE ────────────────────────
+      const isClose = clampedProximity > 0.45;
+      const burstFactor = Math.pow(Math.max(0, (clampedProximity - 0.45) / 0.55), 2);
+
+      // Light flash intensity
+      burstLight.intensity = THREE.MathUtils.lerp(0, 75, burstFactor);
+      redGlowLight.intensity = THREE.MathUtils.lerp(0, 90, burstFactor);
+
+      // Flare mesh expansion & opacity
+      burstMesh.scale.setScalar(THREE.MathUtils.lerp(0.1, 1.8 + Math.sin(elapsed * 15) * 0.3, burstFactor));
+      burstMat.opacity = THREE.MathUtils.lerp(0, 0.95, burstFactor);
+
+      // Sparkle particles appearance
+      sparkMat.opacity = THREE.MathUtils.lerp(0, 0.85, burstFactor);
+      sparkPoints.rotation.y = elapsed * 0.8;
+
+      // Diamond material emissive surge on contact
+      diamondMat1.emissiveIntensity = THREE.MathUtils.lerp(0.15, 0.95, burstFactor);
+      diamondMat2.emissiveIntensity = THREE.MathUtils.lerp(0.15, 0.95, burstFactor);
+
+      // Camera motion
       if (navMode === 'journey') {
         const scrollZ = scrollProgress * 22;
         targetCamZ = 8.5 - scrollZ;
@@ -225,10 +275,13 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       window.removeEventListener('mousemove', onPointerMove);
       window.removeEventListener('resize', onResize);
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-      haloGeo.dispose();
-      plateGeo.dispose();
-      diamondMat.dispose();
-      wireframeMat.dispose();
+      burstGeo.dispose();
+      burstMat.dispose();
+      sparkGeo.dispose();
+      sparkMat.dispose();
+      diamondMat1.dispose();
+      diamondMat2.dispose();
+      wireMat.dispose();
       renderer.dispose();
     };
   }, [navMode, scrollProgress, atlasPan, activeProject]);
