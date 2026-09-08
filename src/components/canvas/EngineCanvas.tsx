@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { Play, RotateCcw, Zap, Eye } from 'lucide-react';
+import { RotateCcw, Zap } from 'lucide-react';
 
 interface EngineCanvasProps {
   navMode: 'journey' | 'atlas';
@@ -16,9 +16,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
   scrollProgress,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [isSlowMo, setIsSlowMo] = useState(false);
-  const [strikeScore, setStrikeScore] = useState<string>('PERFECT STRIKE • 300');
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const actionRef = useRef<THREE.AnimationAction | null>(null);
 
@@ -29,14 +27,15 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // ── 1. SCENE & DYNAMIC CAMERA ───────────────────────────────────────────
+    // ── 1. SCENE & DRAMATIC 3/4 PERSPECTIVE CAMERA ───────────────────────────
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0b0e);
-    scene.fog = new THREE.FogExp2(0x0a0b0e, 0.035);
+    scene.background = new THREE.Color(0x0c0e12);
+    scene.fog = new THREE.FogExp2(0x0c0e12, 0.03);
 
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-    camera.position.set(0, 1.8, -7.5);
-    camera.lookAt(0, 0.4, 4.0);
+    const camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 100);
+    // Positioned behind the release point looking down the lane at the pin deck
+    camera.position.set(2.8, 2.4, -6.8);
+    camera.lookAt(0, 0.35, 4.2);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -47,82 +46,85 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.7;
+    renderer.toneMappingExposure = 1.65;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // ── 2. STUDIO HDR LIGHTING ──────────────────────────────────────────────
+    // ── 2. STUDIO HDR ENVMAP GENERATION ──────────────────────────────────────
     const pmremGen = new THREE.PMREMGenerator(renderer);
     pmremGen.compileEquirectangularShader();
 
     const envScene = new THREE.Scene();
-    envScene.background = new THREE.Color(0x0f1115);
+    envScene.background = new THREE.Color(0x0a0c10);
 
-    // Overhead Light Strip along Bowling Lane
-    const laneLightGeo = new THREE.PlaneGeometry(3, 18);
-    const laneLightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const laneLightMesh = new THREE.Mesh(laneLightGeo, laneLightMat);
-    laneLightMesh.position.set(0, 8, 2);
-    laneLightMesh.rotation.x = Math.PI / 2;
-    envScene.add(laneLightMesh);
-
-    // Pin Spot Light
-    const pinGlow = new THREE.Mesh(
-      new THREE.SphereGeometry(2, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0xffe8d0 })
+    // Lane Light Strip
+    const laneLight = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.5, 20),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
-    pinGlow.position.set(0, 5, 8);
+    laneLight.position.set(0, 9, 2);
+    laneLight.rotation.x = Math.PI / 2;
+    envScene.add(laneLight);
+
+    // Pin Deck Spotlight
+    const pinGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(2.5, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffeedd })
+    );
+    pinGlow.position.set(0, 5, 7.5);
     envScene.add(pinGlow);
 
     const envTex = pmremGen.fromScene(envScene, 0.04).texture;
     scene.environment = envTex;
     envScene.clear();
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    // ── 3. THREE-POINT LIGHTING SETUP ────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
     scene.add(ambientLight);
 
-    const pinSpot = new THREE.SpotLight(0xfffaee, 6.0, 15, Math.PI / 4, 0.3, 1.5);
-    pinSpot.position.set(0, 5, 6.5);
-    pinSpot.target.position.set(0, 0.3, 7.8);
-    pinSpot.castShadow = true;
-    pinSpot.shadow.mapSize.width = 1024;
-    pinSpot.shadow.mapSize.height = 1024;
-    scene.add(pinSpot);
-    scene.add(pinSpot.target);
+    const pinDeckSpot = new THREE.SpotLight(0xfff8ee, 7.0, 18, Math.PI / 3.5, 0.25, 1.2);
+    pinDeckSpot.position.set(0, 5.5, 6.0);
+    pinDeckSpot.target.position.set(0, 0.3, 7.2);
+    pinDeckSpot.castShadow = true;
+    pinDeckSpot.shadow.mapSize.width = 1024;
+    pinDeckSpot.shadow.mapSize.height = 1024;
+    pinDeckSpot.shadow.bias = -0.0001;
+    scene.add(pinDeckSpot);
+    scene.add(pinDeckSpot.target);
 
-    const laneKey = new THREE.DirectionalLight(0xfff0dd, 2.5);
-    laneKey.position.set(4, 8, -2);
+    const laneKey = new THREE.DirectionalLight(0xffeedd, 3.2);
+    laneKey.position.set(5, 9, -2);
     laneKey.castShadow = true;
     scene.add(laneKey);
 
-    const cyanRim = new THREE.DirectionalLight(0x00d4ff, 3.0);
-    cyanRim.position.set(-5, 3, 4);
-    scene.add(cyanRim);
+    const neonRim = new THREE.DirectionalLight(0x00d4ff, 3.5);
+    neonRim.position.set(-6, 3, 3);
+    scene.add(neonRim);
 
-    // ── 3. IMPACT PARTICLE SPARKS ───────────────────────────────────────────
-    const sparkCount = 35;
+    // ── 4. IMPACT SPARKS / DUST PARTICLES ────────────────────────────────────
+    const sparkCount = 40;
     const sparkGeo = new THREE.BufferGeometry();
     const sparkPos = new Float32Array(sparkCount * 3);
     const sparkVel: THREE.Vector3[] = [];
 
     for (let i = 0; i < sparkCount; i++) {
-      sparkPos[i * 3] = 0;
-      sparkPos[i * 3 + 1] = 0.3;
-      sparkPos[i * 3 + 2] = 7.5;
+      sparkPos[i * 3] = (Math.random() - 0.5) * 0.3;
+      sparkPos[i * 3 + 1] = 0.25;
+      sparkPos[i * 3 + 2] = 6.8;
       sparkVel.push(
         new THREE.Vector3(
-          (Math.random() - 0.5) * 4.0,
-          Math.random() * 3.5 + 1.0,
-          Math.random() * 3.0 + 1.0
+          (Math.random() - 0.5) * 3.5,
+          Math.random() * 3.0 + 0.8,
+          Math.random() * 3.2 + 0.8
         )
       );
     }
 
     sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
     const sparkMat = new THREE.PointsMaterial({
-      color: 0xffbb44,
-      size: 0.12,
+      color: 0xffaa33,
+      size: 0.14,
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
@@ -130,10 +132,9 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const sparkParticles = new THREE.Points(sparkGeo, sparkMat);
     scene.add(sparkParticles);
 
-    // ── 4. LOAD ANIMATED BOWLING STRIKE GLB ──────────────────────────────────
+    // ── 5. LOAD ANIMATED BOWLING STRIKE GLB ──────────────────────────────────
     const loader = new GLTFLoader();
     let bowlingScene: THREE.Group | null = null;
-    let ballObject: THREE.Object3D | null = null;
 
     loader.load(
       '/models/bowling_strike.glb',
@@ -141,47 +142,71 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
         bowlingScene = gltf.scene;
         scene.add(bowlingScene);
 
-        // Enhance materials with PBR Clearcoat Shaders
+        // Apply Luxury Materials
         bowlingScene.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const mesh = child as THREE.Mesh;
             mesh.castShadow = true;
             mesh.receiveShadow = true;
 
-            if (mesh.name.toLowerCase().includes('ball')) {
-              ballObject = mesh;
+            const nameL = mesh.name.toLowerCase();
+            if (nameL.includes('ball')) {
               mesh.material = new THREE.MeshPhysicalMaterial({
                 color: 0xc61c09,
-                roughness: 0.06,
-                metalness: 0.4,
+                roughness: 0.05,
+                metalness: 0.45,
                 clearcoat: 1.0,
                 clearcoatRoughness: 0.02,
                 reflectivity: 1.0,
                 envMapIntensity: 2.5,
               });
-            } else if (mesh.name.toLowerCase().includes('pin')) {
+            } else if (nameL.includes('pin')) {
+              // Master pin with red stripes
+              if (Array.isArray(mesh.material)) {
+                mesh.material[0] = new THREE.MeshPhysicalMaterial({
+                  color: 0xfafbfc,
+                  roughness: 0.1,
+                  metalness: 0.04,
+                  clearcoat: 1.0,
+                  clearcoatRoughness: 0.02,
+                  envMapIntensity: 2.2,
+                });
+                mesh.material[1] = new THREE.MeshPhysicalMaterial({
+                  color: 0xd91424,
+                  roughness: 0.12,
+                  metalness: 0.05,
+                  clearcoat: 1.0,
+                  clearcoatRoughness: 0.03,
+                  envMapIntensity: 2.0,
+                });
+              } else {
+                mesh.material = new THREE.MeshPhysicalMaterial({
+                  color: 0xfafbfc,
+                  roughness: 0.1,
+                  metalness: 0.04,
+                  clearcoat: 1.0,
+                  clearcoatRoughness: 0.02,
+                  envMapIntensity: 2.2,
+                });
+              }
+            } else if (nameL.includes('lane') || nameL.includes('parquet')) {
               mesh.material = new THREE.MeshPhysicalMaterial({
-                color: 0xfcfcfd,
-                roughness: 0.12,
-                metalness: 0.05,
-                clearcoat: 1.0,
-                clearcoatRoughness: 0.03,
-                envMapIntensity: 2.0,
-              });
-            } else if (mesh.name.toLowerCase().includes('lane') || mesh.name.toLowerCase().includes('parquet')) {
-              mesh.material = new THREE.MeshPhysicalMaterial({
-                color: 0x9e734b,
-                roughness: 0.18,
-                metalness: 0.08,
+                color: 0xa87c52,
+                roughness: 0.16,
+                metalness: 0.06,
                 clearcoat: 0.95,
-                clearcoatRoughness: 0.04,
-                envMapIntensity: 2.2,
+                clearcoatRoughness: 0.03,
+                envMapIntensity: 2.4,
+              });
+            } else if (nameL.includes('neon')) {
+              mesh.material = new THREE.MeshBasicMaterial({
+                color: 0x00e1ff,
               });
             }
           }
         });
 
-        // Setup Animation Mixer
+        // Initialize Animation
         if (gltf.animations && gltf.animations.length > 0) {
           const mixer = new THREE.AnimationMixer(bowlingScene);
           mixerRef.current = mixer;
@@ -198,7 +223,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       (err) => console.error('Error loading bowling strike:', err)
     );
 
-    // ── 5. MOUSE INTERACTION & ORBIT TILT ───────────────────────────────────
+    // ── 6. SMOOTH ORBIT CONTROLS ────────────────────────────────────────────
     let targetRotX = 0;
     let targetRotY = 0;
     let currentRotX = 0;
@@ -224,7 +249,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
         const deltaY = cy - prevMouseY;
         targetRotY += deltaX * 0.005;
         targetRotX += deltaY * 0.003;
-        targetRotX = Math.max(-0.35, Math.min(0.45, targetRotX));
+        targetRotX = Math.max(-0.35, Math.min(0.4, targetRotX));
         prevMouseX = cx;
         prevMouseY = cy;
       }
@@ -241,7 +266,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp);
 
-    // ── 6. RENDER & CINEMATIC TRACKING LOOP ─────────────────────────────────
+    // ── 7. RENDER & CINEMATIC CAMERA DYNAMICS ────────────────────────────────
     let animationId: number;
     const clock = new THREE.Clock();
 
@@ -249,44 +274,46 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       animationId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Update Animation Mixer with Slow-Mo scaling
       if (mixerRef.current) {
-        const playSpeed = isSlowMo ? 0.35 : 1.0;
+        const playSpeed = isSlowMo ? 0.32 : 1.0;
         mixerRef.current.timeScale = playSpeed;
         mixerRef.current.update(delta);
       }
 
-      // Smooth camera orbit damping
       currentRotX += (targetRotX - currentRotX) * 0.06;
       currentRotY += (targetRotY - currentRotY) * 0.06;
 
-      const baseCamZ = -7.5 + (scrollProgress || 0) * 2.5;
-      camera.position.x = Math.sin(currentRotY) * 6.5 + currentRotY * 1.5;
-      camera.position.z = Math.cos(currentRotY) * baseCamZ;
-      camera.position.y = 1.8 + currentRotX * 3.5;
-      camera.lookAt(0, 0.4, 4.0);
+      // Camera Position & Smooth Damping
+      const camX = 2.8 + Math.sin(currentRotY) * 5.5;
+      const camZ = -6.8 * Math.cos(currentRotY);
+      const camY = 2.4 + currentRotX * 3.0;
 
-      // Impact spark trigger at impact time (~1.1s in animation)
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(0, 0.4, 4.5);
+
+      // Trigger spark particles right at impact (~frame 23 -> ~0.76s in animation)
       if (mixerRef.current && actionRef.current) {
-        const animTime = actionRef.current.time % actionRef.current.getClip().duration;
-        if (animTime > 1.05 && animTime < 1.45) {
-          sparkMat.opacity = Math.min(1.0, sparkMat.opacity + 0.15);
+        const clipDuration = actionRef.current.getClip().duration || 3.0;
+        const animTime = actionRef.current.time % clipDuration;
+
+        // Impact window: 0.74s to 1.1s
+        if (animTime > 0.72 && animTime < 1.15) {
+          sparkMat.opacity = Math.min(1.0, sparkMat.opacity + 0.2);
           const pArr = sparkGeo.attributes.position.array as Float32Array;
           for (let i = 0; i < sparkCount; i++) {
-            pArr[i * 3] += sparkVel[i].x * delta * 2.0;
-            pArr[i * 3 + 1] += sparkVel[i].y * delta * 2.0;
-            pArr[i * 3 + 2] += sparkVel[i].z * delta * 2.0;
+            pArr[i * 3] += sparkVel[i].x * delta * 2.2;
+            pArr[i * 3 + 1] += sparkVel[i].y * delta * 2.2;
+            pArr[i * 3 + 2] += sparkVel[i].z * delta * 2.2;
           }
           sparkGeo.attributes.position.needsUpdate = true;
         } else {
           sparkMat.opacity = Math.max(0.0, sparkMat.opacity - 0.08);
           if (sparkMat.opacity <= 0) {
-            // Reset sparks
             const pArr = sparkGeo.attributes.position.array as Float32Array;
             for (let i = 0; i < sparkCount; i++) {
-              pArr[i * 3] = (Math.random() - 0.5) * 0.4;
+              pArr[i * 3] = (Math.random() - 0.5) * 0.3;
               pArr[i * 3 + 1] = 0.25;
-              pArr[i * 3 + 2] = 7.5;
+              pArr[i * 3 + 2] = 6.8;
             }
             sparkGeo.attributes.position.needsUpdate = true;
           }
@@ -359,12 +386,12 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
           onClick={toggleSlowMo}
           className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer ${
             isSlowMo
-              ? 'bg-[#dda236] text-[#0c0d10] border-[#dda236]'
+              ? 'bg-[#00d4ff] text-[#0c0e12] border-[#00d4ff]'
               : 'bg-[#140f0c]/90 text-[#a89f91] hover:text-[#f5efe9] border-[#2e2724]'
           }`}
         >
           <Zap className="w-3.5 h-3.5" />
-          <span>{isSlowMo ? 'SLOW-MO ON (0.35x)' : 'SLOW-MO'}</span>
+          <span>{isSlowMo ? 'SLOW-MO ON (0.32x)' : 'SLOW-MO'}</span>
         </button>
       </div>
     </div>
