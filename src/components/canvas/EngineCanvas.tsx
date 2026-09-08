@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 interface EngineCanvasProps {
   navMode: 'journey' | 'atlas';
@@ -26,114 +25,179 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     const width = container.clientWidth;
     const height = container.clientHeight;
 
+    // ── SCENE & ISOMETRIC CAMERA ─────────────────────────────────────────────
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x090706, 0.035);
+    scene.background = new THREE.Color(0x18191c);
+    scene.fog = new THREE.FogExp2(0x18191c, 0.025);
 
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-    camera.position.set(0, 1.1, 7.2);
+    const aspect = width / height;
+    const camera = new THREE.PerspectiveCamera(34, aspect, 0.1, 100);
+    // Authentic 3/4 isometric perspective matching Blender viewport
+    camera.position.set(10.5, 9.2, 11.5);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true,
+      alpha: false,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.6;
+    renderer.toneMappingExposure = 1.35;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // ── AUTOMOTIVE STUDIO LIGHTING ───────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    // ── STUDIO LIGHTING ──────────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
-    keyLight.position.set(5, 8, 5);
+    const keyLight = new THREE.DirectionalLight(0xfff5ea, 3.2);
+    keyLight.position.set(12, 18, 14);
     keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    keyLight.shadow.bias = -0.0001;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0xff6030, 2.0);
-    fillLight.position.set(-6, 4, -3);
+    const fillLight = new THREE.DirectionalLight(0xa0c0e0, 1.5);
+    fillLight.position.set(-10, 8, -6);
     scene.add(fillLight);
 
-    const rimLight = new THREE.DirectionalLight(0x4080ff, 2.5);
-    rimLight.position.set(0, 6, -6);
-    scene.add(rimLight);
+    const topSoft = new THREE.DirectionalLight(0xffffff, 1.2);
+    topSoft.position.set(0, 15, 0);
+    scene.add(topSoft);
 
-    const groundGlow = new THREE.PointLight(0xc61c09, 3.0, 10, 1.5);
-    groundGlow.position.set(0, -0.2, 0);
-    scene.add(groundGlow);
+    // ── QUADRANT TEXTURE FOR SPHERES (Black & Cream Checkered Ball) ───────────
+    const makeQuadrantTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d')!;
+      // 4 quadrants
+      ctx.fillStyle = '#e8e4dc'; // Warm ivory cream
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.fillRect(256, 256, 256, 256);
+      ctx.fillStyle = '#1a1b1e'; // Matte deep obsidian
+      ctx.fillRect(256, 0, 256, 256);
+      ctx.fillRect(0, 256, 256, 256);
+      // Soft center seam line
+      ctx.strokeStyle = '#3a3b3e';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(256, 0); ctx.lineTo(256, 512);
+      ctx.moveTo(0, 256); ctx.lineTo(512, 256);
+      ctx.stroke();
 
-    // ── STUDIO FLOOR MIRROR & GROUND GRID ────────────────────────────────────
-    const gridHelper = new THREE.GridHelper(24, 40, 0xc61c09, 0x1f1917);
-    gridHelper.position.y = -0.7;
-    (gridHelper.material as THREE.Material).transparent = true;
-    (gridHelper.material as THREE.Material).opacity = 0.35;
-    scene.add(gridHelper);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    };
 
-    // ── CAR ROOT ASSEMBLY ───────────────────────────────────────────────────
-    const carRoot = new THREE.Group();
-    carRoot.position.set(0, -0.2, 0);
-    scene.add(carRoot);
+    const ballTexture = makeQuadrantTexture();
+    const ballMaterial = new THREE.MeshStandardMaterial({
+      map: ballTexture,
+      roughness: 0.25,
+      metalness: 0.1,
+    });
 
-    // ── LOAD RED SPORTS CAR GLB ──────────────────────────────────────────────
-    const loader = new GLTFLoader();
-    let carModel: THREE.Group | null = null;
+    // ── KINETIC COLOR PALETTE (From Blender Reference) ────────────────────────
+    const trackConfigs = [
+      { color: 0x4a7bb0, name: 'Cerulean Blue', offset: 0.0, speed: 2.4 },
+      { color: 0xc89e48, name: 'Warm Ochre Gold', offset: 1.6, speed: 2.4 },
+      { color: 0xb06575, name: 'Dusty Mauve Pink', offset: 3.2, speed: 2.4 },
+      { color: 0x529e75, name: 'Mint Emerald Green', offset: 4.8, speed: 2.4 },
+    ];
 
-    loader.load(
-      '/models/red_sports_car.glb',
-      (gltf) => {
-        carModel = gltf.scene;
-        
-        // Auto-center and normalize scale
-        const box = new THREE.Box3().setFromObject(carModel);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const targetScale = 3.6 / (maxDim || 1);
+    const motionRoot = new THREE.Group();
+    // Rotate assembly along diagonal track angle
+    motionRoot.rotation.y = Math.PI * 0.25;
+    scene.add(motionRoot);
 
-        carModel.scale.set(targetScale, targetScale, targetScale);
-        carModel.position.sub(center.multiplyScalar(targetScale));
-        carModel.position.y += 0.3;
+    // ── PROCEDURAL SLICES & TILES SETUP ──────────────────────────────────────
+    const SLICES_PER_TRACK = 38;
+    const SLICE_WIDTH = 0.82;
+    const SLICE_LENGTH = 0.14;
+    const SLICE_HEIGHT = 0.42;
+    const SPACING = 0.18;
+    const TRACK_SPACING = 1.15;
+    const TRACK_TOTAL_LENGTH = SLICES_PER_TRACK * SPACING;
 
-        carModel.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+    const sliceGeo = new THREE.BoxGeometry(SLICE_WIDTH, SLICE_HEIGHT, SLICE_LENGTH);
 
-            // Enhance materials with luxury PBR finish
-            if (mesh.material) {
-              const mat = mesh.material as THREE.MeshStandardMaterial;
-              if (mat.name.toLowerCase().includes('red') || mat.name.toLowerCase().includes('body')) {
-                mat.roughness = 0.15;
-                mat.metalness = 0.85;
-                mat.envMapIntensity = 2.0;
-              }
-            }
-          }
+    interface SliceData {
+      mesh: THREE.Mesh;
+      baseX: number;
+      baseY: number;
+      baseZ: number;
+      trackIndex: number;
+      sliceIndex: number;
+    }
+
+    const allSlices: SliceData[] = [];
+    const sphereMeshes: THREE.Mesh[] = [];
+
+    // Build 4 Tracks
+    trackConfigs.forEach((cfg, tIdx) => {
+      const trackX = (tIdx - 1.5) * TRACK_SPACING;
+
+      const trackMat = new THREE.MeshStandardMaterial({
+        color: cfg.color,
+        roughness: 0.38,
+        metalness: 0.08,
+      });
+
+      // Domino Tiles
+      for (let sIdx = 0; sIdx < SLICES_PER_TRACK; sIdx++) {
+        const sliceMesh = new THREE.Mesh(sliceGeo, trackMat);
+        const zPos = (sIdx - SLICES_PER_TRACK * 0.5) * SPACING;
+
+        sliceMesh.position.set(trackX, 0, zPos);
+        sliceMesh.castShadow = true;
+        sliceMesh.receiveShadow = true;
+
+        motionRoot.add(sliceMesh);
+        allSlices.push({
+          mesh: sliceMesh,
+          baseX: trackX,
+          baseY: 0,
+          baseZ: zPos,
+          trackIndex: tIdx,
+          sliceIndex: sIdx,
         });
-
-        carRoot.add(carModel);
-      },
-      undefined,
-      (err) => {
-        console.error('Failed to load red sports car:', err);
       }
-    );
 
-    // ── INTERACTIVE MOUSE / GYROSCOPE CONTROLS ───────────────────────────────
+      // Rolling Checkered Ball for this Track
+      const sphereGeo = new THREE.SphereGeometry(0.34, 32, 32);
+      const sphereMesh = new THREE.Mesh(sphereGeo, ballMaterial);
+      sphereMesh.castShadow = true;
+      sphereMesh.receiveShadow = true;
+      motionRoot.add(sphereMesh);
+      sphereMeshes.push(sphereMesh);
+    });
+
+    // ── STUDIO SHADOW CATCHER FLOOR ──────────────────────────────────────────
+    const floorGeo = new THREE.PlaneGeometry(50, 50);
+    const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.y = -1.2;
+    floorMesh.receiveShadow = true;
+    scene.add(floorMesh);
+
+    // ── MOUSE INTERACTION & ORBIT TILT ───────────────────────────────────────
     let mouseX = 0;
     let mouseY = 0;
-    let targetRotX = 0.15;
-    let targetRotY = -0.55;
-    let currentRotX = 0.15;
-    let currentRotY = -0.55;
+    let targetCamAngleX = 0;
+    let targetCamAngleY = 0;
+    let currentCamAngleX = 0;
+    let currentCamAngleY = 0;
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
+    let baseCamRadius = 16.5;
 
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       isDragging = true;
@@ -153,9 +217,9 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       if (isDragging) {
         const deltaX = clientX - prevMouseX;
         const deltaY = clientY - prevMouseY;
-        targetRotY += deltaX * 0.008;
-        targetRotX += deltaY * 0.005;
-        targetRotX = Math.max(-0.4, Math.min(0.6, targetRotX));
+        targetCamAngleX += deltaX * 0.006;
+        targetCamAngleY += deltaY * 0.004;
+        targetCamAngleY = Math.max(-0.6, Math.min(0.6, targetCamAngleY));
         prevMouseX = clientX;
         prevMouseY = clientY;
       }
@@ -172,7 +236,7 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp);
 
-    // ── ANIMATION RENDER LOOP ────────────────────────────────────────────────
+    // ── KINETIC WAVE RENDER LOOP ─────────────────────────────────────────────
     let animationId: number;
     let clock = new THREE.Clock();
 
@@ -180,27 +244,58 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
       animationId = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Smooth damping interpolation
-      if (!isDragging) {
-        targetRotY += 0.0035; // Gentle turntable idle spin
-      }
-      currentRotX += (targetRotX - currentRotX) * 0.06;
-      currentRotY += (targetRotY - currentRotY) * 0.06;
+      // Update camera smooth damping
+      currentCamAngleX += (targetCamAngleX - currentCamAngleX) * 0.05;
+      currentCamAngleY += (targetCamAngleY - currentCamAngleY) * 0.05;
 
-      carRoot.rotation.y = currentRotY;
-      carRoot.rotation.x = currentRotX + Math.sin(elapsed * 1.5) * 0.02;
+      const camAngleBase = Math.PI * 0.28 + currentCamAngleX;
+      const camElev = 9.2 + currentCamAngleY * 4.0;
+      const camRad = baseCamRadius + (scrollProgress || 0) * 4.0;
 
-      // Gentle floating suspension breathing motion
-      carRoot.position.y = -0.2 + Math.sin(elapsed * 2.0) * 0.03;
+      camera.position.x = Math.sin(camAngleBase) * camRad;
+      camera.position.z = Math.cos(camAngleBase) * camRad;
+      camera.position.y = camElev;
+      camera.lookAt(0, 0, 0);
 
-      // Key light subtle dynamic orbit
-      keyLight.position.x = 5 + Math.sin(elapsed * 0.8) * 2.0;
-      groundGlow.intensity = 2.5 + Math.sin(elapsed * 3.0) * 1.0;
+      // ── UPDATE DOMINO WAVE ANIMATION ──────────────────────────────────────
+      const waveFreq = 0.28;
+      const waveSpeed = 3.2;
 
-      // Scroll response
-      const scrollOffset = scrollProgress || 0;
-      camera.position.z = 7.2 + scrollOffset * 3.5;
-      camera.position.y = 1.1 + scrollOffset * 0.5;
+      allSlices.forEach((slice) => {
+        const track = trackConfigs[slice.trackIndex];
+        // Mathematical wave phase
+        const phase = elapsed * waveSpeed - slice.sliceIndex * waveFreq + track.offset;
+        const wave = Math.sin(phase);
+        const waveCos = Math.cos(phase);
+
+        // Continuous twisting angle along length
+        slice.mesh.rotation.z = wave * (Math.PI * 0.45);
+        slice.mesh.rotation.x = waveCos * 0.15;
+        // Height displacement
+        slice.mesh.position.y = slice.baseY + Math.abs(wave) * 0.22;
+      });
+
+      // ── UPDATE ROLLING CHECKERED SPHERES ─────────────────────────────────
+      sphereMeshes.forEach((ball, tIdx) => {
+        const track = trackConfigs[tIdx];
+        const trackX = (tIdx - 1.5) * TRACK_SPACING;
+
+        // Position sphere along the length of the track in periodic motion
+        const ballLoop = (elapsed * 0.45 + track.offset * 0.25) % 1.0;
+        const ballZ = (ballLoop - 0.5) * (TRACK_TOTAL_LENGTH * 0.8);
+
+        // Find wave height at current sphere position
+        const sliceIdxEst = ((ballZ / SPACING) + SLICES_PER_TRACK * 0.5);
+        const phase = elapsed * waveSpeed - sliceIdxEst * waveFreq + track.offset;
+        const wave = Math.sin(phase);
+        const ballY = 0.45 + Math.abs(wave) * 0.24;
+
+        ball.position.set(trackX, ballY, ballZ);
+
+        // Rolling spin physics
+        ball.rotation.x += 0.08;
+        ball.rotation.z = wave * 0.3;
+      });
 
       renderer.render(scene, camera);
     };
@@ -235,5 +330,10 @@ export const EngineCanvas: React.FC<EngineCanvasProps> = ({
     };
   }, [scrollProgress]);
 
-  return <div ref={mountRef} className="absolute inset-0 w-full h-full pointer-events-auto cursor-grab active:cursor-grabbing z-0" />;
+  return (
+    <div
+      ref={mountRef}
+      className="absolute inset-0 w-full h-full pointer-events-auto cursor-grab active:cursor-grabbing z-0"
+    />
+  );
 };
